@@ -17,7 +17,19 @@ export async function OPTIONS() {
   return json({}, 200)
 }
 
-async function getAuthUser() {
+async function getAuthUser(request) {
+  // 1) Authorization: Bearer <access_token> (API clients / testing)
+  try {
+    const authHeader = request?.headers?.get?.('authorization') || ''
+    if (authHeader.toLowerCase().startsWith('bearer ')) {
+      const token = authHeader.slice(7).trim()
+      if (token) {
+        const { data: { user }, error } = await adminClient.auth.getUser(token)
+        if (!error && user) return user
+      }
+    }
+  } catch (e) {}
+  // 2) Cookie session (browser via @supabase/ssr)
   try {
     const supabase = await createSupabaseServerClient()
     const { data: { user }, error } = await supabase.auth.getUser()
@@ -117,7 +129,7 @@ async function handleRoute(request, { params }) {
       if (!comm) return json({ error: 'Community not found' }, 404)
       const { data: creator } = await adminClient.from('profiles').select('id,username,display_name,avatar_url,bio,country').eq('id', comm.creator_id).single()
       const { data: posts } = await adminClient.from('posts').select('*').eq('community_id', comm.id).eq('status', 'published').order('created_at', { ascending: false }).limit(20)
-      const user = await getAuthUser()
+      const user = await getAuthUser(request)
       let membership = null
       if (user) {
         const { data: m } = await adminClient.from('memberships').select('*').eq('community_id', comm.id).eq('user_id', user.id).maybeSingle()
@@ -129,7 +141,7 @@ async function handleRoute(request, { params }) {
     }
 
     // ================= AUTHENTICATED =================
-    const user = await getAuthUser()
+    const user = await getAuthUser(request)
 
     if (route === '/me' && method === 'GET') {
       if (!user) return json({ user: null })
@@ -479,7 +491,7 @@ export async function POST(request, context) {
   const route = `/${path.join('/')}`
   if (route === '/upload') {
     try {
-      const user = await getAuthUser()
+      const user = await getAuthUser(request)
       if (!user) return json({ error: 'Unauthorized' }, 401)
       const form = await request.formData()
       const file = form.get('file')
