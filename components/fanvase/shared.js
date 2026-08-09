@@ -99,17 +99,17 @@ export function ReferralPanel() {
   const [data, setData] = useState(null)
   useEffect(() => { API.get('/referrals').then(setData).catch(() => setData({})) }, [])
   if (!data) return <FullLoader label="Loading referrals" />
-  const link = typeof window !== 'undefined' ? `${window.location.origin}/?ref=${data.code || ''}` : ''
-  const copy = () => { navigator.clipboard.writeText(link); toast.success('Referral link copied!') }
+  const code = data.code || ''
+  const copy = () => { if (!code) return toast.error('Set a username first (complete creator setup)'); navigator.clipboard.writeText(code); toast.success('Referral code copied!') }
   return (
     <div className="space-y-6">
       <div><h1 className="text-2xl font-bold tracking-tight">Refer & Earn</h1><p className="text-sm text-muted-foreground">Earn $10 when a creator you refer lands their first subscriber.</p></div>
 
       <Card className="border-primary/30 bg-card p-6 glow-lime">
-        <div className="flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-xl bg-purple-500/15 text-purple-300"><Gift className="h-5 w-5" /></div><div><p className="font-semibold">Your referral link</p><p className="text-xs text-muted-foreground">Code: @{data.code || 'set-username'}</p></div></div>
+        <div className="flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-xl bg-purple-500/15 text-purple-300"><Gift className="h-5 w-5" /></div><div><p className="font-semibold">Your referral code</p><p className="text-xs text-muted-foreground">Friends enter this code when they sign up.</p></div></div>
         <div className="mt-4 flex gap-2">
-          <Input readOnly value={link} className="font-mono text-xs" />
-          <Button onClick={copy}><Copy className="mr-1 h-4 w-4" /> Copy</Button>
+          <div className="flex flex-1 items-center rounded-xl border border-border bg-background px-4 py-2.5 font-mono text-lg font-semibold tracking-wide">{code ? `@${code}` : 'set a username'}</div>
+          <Button onClick={copy}><Copy className="mr-1 h-4 w-4" /> Copy code</Button>
         </div>
       </Card>
 

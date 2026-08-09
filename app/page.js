@@ -41,7 +41,10 @@ function App() {
       if (data.session) { const m = await loadMe(); routeAfterAuth(m) }
       setBooting(false)
     })
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => { setSession(s); if (!s) { setMe(null); setScreen('landing') } })
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      setSession(s)
+      if (event === 'SIGNED_OUT') { setMe(null); setScreen('landing') }
+    })
     return () => sub.subscription.unsubscribe()
   }, [loadMe])
 

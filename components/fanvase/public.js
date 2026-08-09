@@ -13,6 +13,14 @@ import {
   Sparkles, TrendingUp, Star, Check, PlayCircle, Lock, LinkIcon, FileText, ImageIcon,
 } from 'lucide-react'
 
+function GoogleIcon() {
+  return (
+    <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.4-1.6 4.2-5.5 4.2-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.9 1.5l2.6-2.5C17.1 3.1 14.8 2 12 2 6.9 2 2.8 6.1 2.8 11.2S6.9 20.4 12 20.4c5.9 0 9.8-4.1 9.8-9.9 0-.7-.1-1.2-.2-1.7H12z" />
+    </svg>
+  )
+}
+
 /* ============ LANDING ============ */
 export function Landing({ onStart, onExplore, onLogin }) {
   const steps = [
@@ -203,14 +211,16 @@ export function AuthView({ mode = 'signup', initialRole = 'creator', refCode, on
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
+  const [code, setCode] = useState(refCode || '')
   const [loading, setLoading] = useState(false)
+  const [gLoading, setGLoading] = useState(false)
 
   async function submit() {
     if (!email || !password) { toast.error('Enter email and password'); return }
     setLoading(true)
     try {
       if (mode === 'signup') {
-        await API.post('/auth/signup', { email, password, display_name: name, role, ref: refCode || null })
+        await API.post('/auth/signup', { email, password, display_name: name, role, ref: (code || '').trim().toLowerCase() || null })
       }
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw new Error(error.message)
@@ -224,6 +234,14 @@ export function AuthView({ mode = 'signup', initialRole = 'creator', refCode, on
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
     if (error) toast.error(error.message)
     else toast.success('If that account exists, a reset link was sent.')
+  }
+
+  async function signInGoogle() {
+    setGLoading(true)
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback` } })
+      if (error) throw new Error(error.message)
+    } catch (e) { toast.error(e.message); setGLoading(false) }
   }
 
   return (
@@ -260,11 +278,14 @@ export function AuthView({ mode = 'signup', initialRole = 'creator', refCode, on
             <div className="mt-6 space-y-4">
               {mode === 'signup' && (<div><Label>Display name</Label><Input className="mt-1.5" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" /></div>)}
               <div><Label>Email</Label><Input className="mt-1.5" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" /></div>
+              {mode === 'signup' && (<div><Label>Referral code <span className="text-muted-foreground">(optional)</span></Label><Input className="mt-1.5" value={code} onChange={e => setCode(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))} placeholder="creator's username" /><p className="mt-1 text-xs text-muted-foreground">Enter a creator or fan&rsquo;s username who referred you.</p></div>)}
               <div>
                 <div className="flex items-center justify-between"><Label>Password</Label>{mode === 'login' && <button onClick={forgot} className="text-xs text-primary">Forgot?</button>}</div>
-                <Input className="mt-1.5" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" onKeyDown={e => e.key === 'Enter' && submit()} />
+                <Input className="mt-1.5" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter a password" onKeyDown={e => e.key === 'Enter' && submit()} />
               </div>
               <Button className="w-full font-semibold" onClick={submit} disabled={loading}>{loading ? <Spinner className="text-primary-foreground" /> : (mode === 'signup' ? 'Create account' : 'Log in')}</Button>
+              <div className="relative py-1"><div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div><div className="relative flex justify-center"><span className="bg-card px-3 text-xs text-muted-foreground">or</span></div></div>
+              <Button variant="outline" className="w-full" onClick={signInGoogle} disabled={gLoading}>{gLoading ? <Spinner /> : <><GoogleIcon /> Continue with Google</>}</Button>
             </div>
             <p className="mt-4 text-center text-sm text-muted-foreground">
               {mode === 'signup' ? <>Already have an account? <button onClick={() => onSwitch?.('login')} className="font-semibold text-primary">Log in</button></> : <>New to Fanvase? <button onClick={() => onSwitch?.('signup')} className="font-semibold text-primary">Sign up</button></>}

@@ -53,12 +53,12 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
     catch (e) {} finally { setChecking(false) }
   }
 
-  const steps = ['Creator', 'Community', 'Pricing', 'Refer & Earn', 'Review']
+  const steps = ['Creator', 'Community', 'Pricing', 'Review']
   function next() {
     if (step === 1) { if (d.username.length < 3) return toast.error('Choose a username (3+ chars)'); if (unameOk === false) return toast.error('Username taken'); if (!d.display_name) return toast.error('Enter a display name') }
     if (step === 2 && !d.c_name) return toast.error('Enter a community name')
     if (step === 3 && (!d.price || Number(d.price) <= 0)) return toast.error('Set a price')
-    setStep(s => Math.min(5, s + 1))
+    setStep(s => Math.min(4, s + 1))
   }
 
   async function launch() {
@@ -160,17 +160,6 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
 
           {step === 4 && (
             <div className="space-y-5">
-              <div><h2 className="text-2xl font-bold">Refer & Earn</h2><p className="text-sm text-muted-foreground">Grow the platform, get rewarded.</p></div>
-              <div className="rounded-2xl border border-border bg-background p-5">
-                <div className="flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-xl bg-purple-500/15 text-purple-300"><Gift className="h-5 w-5" /></div><div><p className="font-semibold">Your referral code</p><p className="text-sm text-muted-foreground">@{d.username || 'yourhandle'}</p></div></div>
-                <div className="mt-4 rounded-xl bg-primary/10 p-4 text-sm"><span className="font-semibold text-primary">Earn $10</span> when a creator you refer creates their account and lands their first subscriber.</div>
-              </div>
-              <p className="text-xs text-muted-foreground">Your username is your referral code. Share your link from the Referrals dashboard after launch.</p>
-            </div>
-          )}
-
-          {step === 5 && (
-            <div className="space-y-5">
               <div><h2 className="text-2xl font-bold">Review & launch</h2><p className="text-sm text-muted-foreground">Everything look good? Launch your community.</p></div>
               <div className="overflow-hidden rounded-2xl border border-border">
                 <div className="relative h-24 bg-secondary">{d.c_cover ? <img src={d.c_cover} className="h-full w-full object-cover" alt="" /> : <div className="h-full w-full bg-gradient-to-br from-primary/20 to-purple-600/20" />}</div>
@@ -186,7 +175,7 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
 
           <div className="mt-8 flex items-center justify-between">
             <Button variant="ghost" onClick={() => step === 1 ? onExit?.() : setStep(s => s - 1)}><ArrowLeft className="mr-1 h-4 w-4" /> {step === 1 ? 'Cancel' : 'Back'}</Button>
-            {step < 5 ? <Button onClick={next} className="font-semibold">Continue <ArrowRight className="ml-1 h-4 w-4" /></Button>
+            {step < 4 ? <Button onClick={next} className="font-semibold">Continue <ArrowRight className="ml-1 h-4 w-4" /></Button>
               : <Button onClick={launch} disabled={saving} className="font-semibold glow-lime">{saving ? <Spinner className="text-primary-foreground" /> : <><Rocket className="mr-1 h-4 w-4" /> Launch Community</>}</Button>}
           </div>
         </Card>
