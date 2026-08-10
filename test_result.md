@@ -217,6 +217,62 @@ backend:
         -working: true
         -agent: "testing"
         -comment: "✅ TESTED: All admin endpoints working. GET /api/admin/overview (200, users/creators/communities/revenue stats), GET /api/admin/users (200), GET /api/admin/communities (200). POST /api/admin/update-community (200, community activated), POST /api/admin/activate-platform (200), POST /api/admin/add-member (200, membership created, transaction recorded, balance updated). Referral conversion working: $10 reward when referred creator gets first subscriber. Authorization: non-admin gets 403."
+  - task: "Creator onboarding with payout method (POST /api/onboarding/creator accepts payout:{method, details})"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "POST /api/onboarding/creator now accepts optional payout:{method, details} and saves to profiles.payout_method + profiles.payout_details (jsonb). Onboarding without payout still works (backward compatible)."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ TESTED (Round 2): Creator onboarding WITH payout method working. Tested with payout:{method:'paypal', details:{email:'pay@test.com'}} - onboarding successful (200), GET /api/me shows profile.payout_method='paypal'. Also verified onboarding WITHOUT payout still works (backward compatibility confirmed)."
+  - task: "GET /api/creator/earnings includes payout_method and payout_details fields"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "GET /api/creator/earnings now returns payout_method and payout_details from profile in addition to balance, transactions, payouts, platformFees."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ TESTED (Round 2): GET /api/creator/earnings correctly includes payout_method and payout_details fields. Verified with creator who has payout_method='paypal' - both fields present in response."
+  - task: "POST /api/creator/withdraw with guardrails (requires payout_method and available>0)"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW endpoint POST /api/creator/withdraw. Requires payout_method set AND available>0. Creates payouts row (status=pending), moves available->pending in creator_balances, logs payout transaction. Returns 400 if no payout method or 0 balance."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ TESTED (Round 2): All withdraw guardrails working correctly. (1) Creator without payout_method -> 400 'Add a payout method first'. (2) Creator with payout_method but 0 balance -> 400 'No available balance to withdraw'. (3) Full flow: admin activated community + added member (balance=9), creator withdrew successfully (200), balance.available=0, balance.pending=9, 1 pending payout created."
+  - task: "POST /api/creator/payout-method to update payout info"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW endpoint POST /api/creator/payout-method {method, details} updates profiles.payout_method and profiles.payout_details for authenticated creator."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ TESTED (Round 2): POST /api/creator/payout-method working correctly. Updated payout method from 'paypal' to 'upi' with details:{upi_id:'test@upi'} - update successful (200), GET /api/me confirmed payout_method='upi'."
 
 frontend:
   - task: "Full Fanvase SPA (landing, auth, onboarding, creator dashboard, fan app, admin, public community, discover)"
@@ -234,22 +290,23 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 2
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Auth signup (server-side admin.createUser + profile creation + referral attribution + admin auto-role)"
-    - "Creator onboarding (POST /api/onboarding/creator) + username availability"
-    - "Discover + public community (GET /api/communities, /api/search-creator, /api/community/:slug)"
-    - "Posts CRUD (GET /api/creator/posts, POST /api/posts, PUT/DELETE /api/posts/:id) + upload"
-    - "Admin panel APIs (overview, users, communities, update-community, activate-platform, add-member with referral conversion)"
+    - "Creator onboarding with payout method (POST /api/onboarding/creator accepts payout:{method, details})"
+    - "GET /api/creator/earnings includes payout_method and payout_details fields"
+    - "POST /api/creator/withdraw with guardrails (requires payout_method and available>0)"
+    - "POST /api/creator/payout-method to update payout info"
   stuck_tasks: []
-  test_all: true
+  test_all: false
   test_priority: "high_first"
 
 agent_communication:
     -agent: "main"
-    -message: "Backend uses Supabase. Auth is Supabase email/password. To test authenticated endpoints, sign up via POST /api/auth/signup {email,password,display_name,role} then obtain a session by calling supabase.auth.signInWithPassword using anon key (NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY from /app/.env) and send the auth cookies to /api routes (the API reads the cookie session via @supabase/ssr). Alternatively, use the access_token as a cookie set by @supabase/ssr (sb-<ref>-auth-token). Admin account: create a user with email ajayylodhi09@gmail.com (it auto-gets role=admin). DB schema is applied; storage buckets media/files exist. Please test all high-priority flows end-to-end incl. creator signup->onboarding->create post, fan signup->discover->public community, and admin add-member referral conversion. Base URL: use NEXT_PUBLIC_BASE_URL from /app/.env with /api prefix."
+    -message: "NEW CHANGES to test (round 2). Added payout support. (1) POST /api/onboarding/creator now also accepts payout:{method, details} and saves to profiles.payout_method + profiles.payout_details (jsonb columns just added). Verify a creator onboarding with payout {method:'paypal', details:{email:'x@y.com'}} succeeds and GET /api/me shows profile.payout_method='paypal'. (2) GET /api/creator/earnings now returns payout_method + payout_details. (3) NEW POST /api/creator/withdraw: requires a payout_method set AND available>0; creates a payouts row (pending), moves available->pending, logs a payout transaction. Test: as a creator with 0 balance and no payout method -> expect 400 'Add a payout method first'; after onboarding with payout method but still 0 balance -> expect 400 'No available balance'; then have admin add a member to the creator's ACTIVE community (via /api/admin/add-member) so available>0, then POST /api/creator/withdraw -> expect ok, and GET /api/creator/earnings shows a pending payout + available reset to 0. (4) NEW POST /api/creator/payout-method {method, details} updates the profile. Please also re-verify the core signup->onboarding->admin add-member flow still works. Auth: POST /api/auth/signup then Supabase token endpoint for Bearer token (see earlier note). Admin email: ajayylodhi09@gmail.com."
     -agent: "testing"
     -message: "✅ BACKEND TESTING COMPLETE: All 39 tests passed (100% success rate). Tested flows: (A) Public endpoints - categories, communities, search, community detail with 404 handling. (B) Creator journey - signup, auth token, /me, username availability, onboarding with pending community, post CRUD, dashboard KPIs/members/earnings, referrals, platform subscribe. (C) Public community visibility - pending communities not listed, members-only posts hidden. (D) Fan journey - signup, /me with role=fan, fan/communities. (E) Referral attribution - signup with ref parameter creates pending referral. (F) Admin flow - overview/users/communities endpoints, update-community (activate), activate-platform, add-member (creates membership, transaction, updates balance), referral conversion ($10 reward when referred creator gets first subscriber). (G) Authorization - admin endpoints return 403 for non-admin, creator endpoints return 403 for fan, /me returns user=null without auth. Bearer token authentication working correctly. No critical issues found."
+    -agent: "testing"
+    -message: "✅ PAYOUT FEATURES TESTING COMPLETE (Round 2): All 18 payout tests passed (100% success rate). Tested: (1) Creator onboarding WITH payout method - creator onboarded with payout:{method:'paypal', details:{email:'pay@test.com'}}, GET /api/me confirmed payout_method='paypal'. (2) GET /api/creator/earnings includes payout_method and payout_details fields - verified both fields present. (3) Withdraw guardrails - tested no payout method (400 'Add a payout method first'), 0 balance (400 'No available balance to withdraw'). (4) Full earning + withdraw flow - admin activated community, added member (balance=9), creator withdrew successfully, balance.available=0, balance.pending=9, 1 pending payout created. (5) POST /api/creator/payout-method - updated from 'paypal' to 'upi', verified via GET /api/me. (6) Regression tests - onboarding without payout still works, GET /api/communities works, POST /api/platform/subscribe works with platform_status='pending'. NO CRITICAL ISSUES. All payout features working as expected."
