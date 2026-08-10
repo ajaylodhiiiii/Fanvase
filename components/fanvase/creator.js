@@ -16,7 +16,7 @@ import { ReferralPanel } from '@/components/fanvase/shared'
 import {
   LayoutDashboard, Radio, FileText, Users, CreditCard, DollarSign, Gift, BarChart3, Settings,
   Plus, Bell, Search, LogOut, Menu, X, TrendingUp, Repeat, Zap, Copy, ExternalLink, Check,
-  ImageIcon, LinkIcon, Trash2, Rocket, ArrowUpRight, UserCircle,
+  ImageIcon, LinkIcon, Trash2, Rocket, ArrowUpRight, UserCircle, Wallet, Banknote,
 } from 'lucide-react'
 
 const NAV = [
@@ -24,7 +24,7 @@ const NAV = [
   { k: 'content', t: 'Content', icon: FileText },
   { k: 'members', t: 'Members', icon: Users },
   { k: 'plans', t: 'Manage Plans', icon: CreditCard },
-  { k: 'earnings', t: 'Earnings', icon: DollarSign },
+  { k: 'earnings', t: 'Payout', icon: DollarSign },
   { k: 'referrals', t: 'Referrals', icon: Gift },
   { k: 'analytics', t: 'Analytics', icon: BarChart3 },
   { k: 'settings', t: 'Settings', icon: Settings },
@@ -93,7 +93,7 @@ export function CreatorDashboard({ profile, communities: initComms, balance, onN
           {view === 'content' && <Content comms={comms} />}
           {view === 'members' && <Members />}
           {view === 'plans' && <Plans profile={profile} onReload={onReload} />}
-          {view === 'earnings' && <Earnings />}
+          {view === 'earnings' && <Earnings profile={profile} />}
           {view === 'referrals' && <ReferralPanel />}
           {view === 'analytics' && <Analytics />}
           {view === 'settings' && <SettingsView profile={profile} community={community} onNavPublic={onNavPublic} />}
@@ -318,7 +318,21 @@ function Plans({ profile, onReload }) {
     { k: 'basic', name: 'Basic', price: 5, benefits: ['1 active community', 'Unlimited posts', 'Up to 500 members', 'Standard support', '10% platform fee'] },
     { k: 'pro', name: 'Pro', price: 20, benefits: ['Unlimited communities', 'Unlimited posts & members', 'Priority support', 'Advanced analytics', 'Lower platform fee', 'Custom branding'] },
   ]
-  async function subscribe(k) { setBusy(k); try { await API.post('/platform/subscribe', { plan: k }); toast.success('Plan selected! Awaiting admin activation.'); onReload?.() } catch (e) { toast.error(e.message) } finally { setBusy('') } }
+  async function subscribe(k) {
+    setBusy(k)
+    const LINKS = {
+      india: { basic: 'https://topmate.io/earnify/membership/89', pro: 'https://topmate.io/earnify/membership/90' },
+      other: { basic: 'https://checkout.dodopayments.com/buy/pdt_0NdP9397LP3ErawjkZKca?quantity=1000', pro: 'https://checkout.dodopayments.com/buy/pdt_0NcsAkONrZNeshm0HK50V?quantity=1000' },
+    }
+    try {
+      await API.post('/platform/subscribe', { plan: k })
+      const region = profile?.country === 'India' ? 'india' : 'other'
+      const url = LINKS[region][k]
+      window.open(url, '_blank')
+      toast.success('Complete payment in the new tab. Your plan activates once we confirm it.')
+      onReload?.()
+    } catch (e) { toast.error(e.message) } finally { setBusy('') }
+  }
   return (
     <div className="space-y-6">
       <div><h1 className="text-2xl font-bold tracking-tight">Manage Plans</h1><p className="text-sm text-muted-foreground">Subscribe to a platform plan to activate your channel.</p></div>
@@ -343,20 +357,57 @@ function Plans({ profile, onReload }) {
 }
 
 /* ---------- EARNINGS ---------- */
-function Earnings() {
+function Earnings({ profile }) {
   const [data, setData] = useState(null)
-  useEffect(() => { API.get('/creator/earnings').then(setData).catch(() => setData({})) }, [])
+  const [busy, setBusy] = useState(false)
+  const load = () => API.get('/creator/earnings').then(setData).catch(() => setData({}))
+  useEffect(() => { load() }, [])
   if (!data) return <FullLoader />
   const b = data.balance || {}
+  const method = data.payout_method
+  const det = data.payout_details || {}
+  const methodLabel = { paypal: 'PayPal', upi: 'UPI', cashapp: 'CashApp', bank: 'Bank account' }[method] || 'Not set'
+  const methodValue = method === 'paypal' ? det.email : method === 'upi' ? det.upi_id : method === 'cashapp' ? det.cashapp : method === 'bank' ? `${det.account} · ${det.ifsc}` : ''
+  async function withdraw() {
+    setBusy(true)
+    try { await API.post('/creator/withdraw', {}); toast.success('Withdrawal requested! We are processing it.'); load() }
+    catch (e) { toast.error(e.message) } finally { setBusy(false) }
+  }
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold tracking-tight">Earnings</h1><p className="text-sm text-muted-foreground">Track your revenue and payouts.</p></div>
+      <div><h1 className="text-2xl font-bold tracking-tight">Payout</h1><p className="text-sm text-muted-foreground">Track your revenue and withdraw your balance.</p></div>
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <KPICard label="Available balance" value={money(b.available)} icon={DollarSign} />
+        <KPICard label="Pending payout" value={money(b.pending)} icon={Wallet} accent="purple" />
         <KPICard label="Total earned" value={money(b.total_earned)} icon={TrendingUp} />
         <KPICard label="Referral payouts" value={money(b.referral_earned)} icon={Gift} accent="purple" />
-        <KPICard label="Platform fees" value={money(data.platformFees)} icon={CreditCard} />
       </div>
+
+      <Card className="border-border bg-card p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="grid h-11 w-11 place-items-center rounded-xl bg-primary/15 text-primary"><Wallet className="h-5 w-5" /></div>
+            <div>
+              <p className="text-sm text-muted-foreground">Payout method</p>
+              <p className="font-semibold">{methodLabel}{methodValue ? ` · ${methodValue}` : ''}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right"><p className="text-xs text-muted-foreground">Available</p><p className="text-lg font-bold text-primary">{money(b.available)}</p></div>
+            <Button onClick={withdraw} disabled={busy || Number(b.available) <= 0} className="font-semibold">{busy ? <Spinner className="text-primary-foreground" /> : <><Banknote className="mr-1 h-4 w-4" /> Withdraw</>}</Button>
+          </div>
+        </div>
+        {!method && <p className="mt-3 text-xs text-amber-300">No payout method set yet — add one to enable withdrawals.</p>}
+      </Card>
+
+      {(data.payouts && data.payouts.length > 0) && (
+        <Section title="Payout history">
+          <div className="space-y-2">{data.payouts.map(p => (
+            <Card key={p.id} className="border-border bg-card p-3"><div className="flex items-center justify-between"><div><p className="text-sm font-medium">Withdrawal</p><p className="text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</p></div><div className="flex items-center gap-3"><StatusBadge status={p.status} /><span className="font-semibold text-primary">{money(p.amount)}</span></div></div></Card>
+          ))}</div>
+        </Section>
+      )}
+
       <Section title="Transaction history">
         {(!data.transactions || data.transactions.length === 0) ? <EmptyState icon={DollarSign} title="No transactions yet" desc="Earnings appear here when members join." /> : (
           <>

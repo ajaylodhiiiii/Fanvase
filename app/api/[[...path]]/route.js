@@ -168,7 +168,7 @@ async function handleRoute(request, { params }) {
 
     if (route === '/onboarding/creator' && method === 'POST') {
       const body = await request.json()
-      const { username, display_name, avatar_url, country, bio, community, pricing } = body
+      const { username, display_name, avatar_url, country, bio, community, pricing, payout } = body
       const uname = (username || '').toLowerCase().trim()
       if (!uname || uname.length < 3) return json({ error: 'Valid username required' }, 400)
       const { data: taken } = await adminClient.from('profiles').select('id').eq('username', uname).maybeSingle()
@@ -177,6 +177,7 @@ async function handleRoute(request, { params }) {
       await adminClient.from('profiles').update({
         username: uname, display_name, avatar_url, country, bio,
         role: newRole, is_creator: true, referral_code: uname,
+        payout_method: payout?.method || null, payout_details: payout?.details || null,
       }).eq('id', user.id)
       let slug = slugify(community?.slug || community?.name)
       if (!slug) slug = `c-${Date.now()}`
@@ -340,7 +341,26 @@ async function handleRoute(request, { params }) {
         balance: bal || { available: 0, pending: 0, total_earned: 0, referral_earned: 0 },
         transactions: (txs || []).map(t => ({ ...t, member: pmap[t.user_id] || null, community: cmap[t.community_id] || null })),
         payouts: payouts || [], platformFees: Math.round(platformFees * 100) / 100,
+        payout_method: profile?.payout_method || null, payout_details: profile?.payout_details || null,
       })
+    }
+
+    if (route === '/creator/withdraw' && method === 'POST') {
+      const { data: bal } = await adminClient.from('creator_balances').select('*').eq('creator_id', user.id).maybeSingle()
+      const avail = Number(bal?.available || 0)
+      if (!profile?.payout_method) return json({ error: 'Add a payout method first' }, 400)
+      if (avail <= 0) return json({ error: 'No available balance to withdraw' }, 400)
+      await adminClient.from('payouts').insert({ creator_id: user.id, amount: avail, status: 'pending' })
+      await adminClient.from('creator_balances').update({ available: 0, pending: Number(bal.pending || 0) + avail, updated_at: new Date().toISOString() }).eq('creator_id', user.id)
+      await adminClient.from('transactions').insert({ creator_id: user.id, user_id: user.id, amount: avail, type: 'payout', status: 'pending', description: 'Withdrawal request' })
+      await adminClient.from('notifications').insert({ user_id: user.id, type: 'payout', title: 'Withdrawal requested', body: `Your withdrawal of $${avail} is being processed.` })
+      return json({ ok: true })
+    }
+
+    if (route === '/creator/payout-method' && method === 'POST') {
+      const body = await request.json()
+      await adminClient.from('profiles').update({ payout_method: body.method, payout_details: body.details }).eq('id', user.id)
+      return json({ ok: true })
     }
 
     if (route === '/referrals' && method === 'GET') {

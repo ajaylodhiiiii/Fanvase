@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { API, CATEGORIES, COUNTRIES, money, cn } from '@/lib/fanvase'
 import { Logo, Avatar, Spinner } from '@/components/fanvase/atoms'
-import { ArrowRight, ArrowLeft, Check, Upload, Repeat, Zap, Gift, Rocket, ImageIcon } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Check, Upload, Repeat, Zap, Gift, Rocket, ImageIcon, Wallet, Landmark, Smartphone, DollarSign } from 'lucide-react'
 
 function Uploader({ label, value, onChange, aspect = 'square' }) {
   const [busy, setBusy] = useState(false)
@@ -42,6 +42,7 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
     country: profile?.country || 'United States', bio: profile?.bio || '',
     c_name: '', c_slug: '', c_desc: '', c_image: '', c_cover: '', c_category: 'AI', c_country: 'United States',
     pricing_type: 'recurring', billing_period: 'monthly', price: '9', currency: 'USD',
+    payout_method: '', po_paypal: '', po_upi: '', po_cashapp: '', po_bank_acc: '', po_bank_ifsc: '',
   })
   const set = (k, v) => setD(p => ({ ...p, [k]: v }))
 
@@ -53,12 +54,28 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
     catch (e) {} finally { setChecking(false) }
   }
 
-  const steps = ['Creator', 'Community', 'Pricing', 'Review']
+  const steps = ['Creator', 'Community', 'Pricing', 'Payout', 'Review']
   function next() {
     if (step === 1) { if (d.username.length < 3) return toast.error('Choose a username (3+ chars)'); if (unameOk === false) return toast.error('Username taken'); if (!d.display_name) return toast.error('Enter a display name') }
     if (step === 2 && !d.c_name) return toast.error('Enter a community name')
     if (step === 3 && (!d.price || Number(d.price) <= 0)) return toast.error('Set a price')
-    setStep(s => Math.min(4, s + 1))
+    if (step === 4) {
+      if (!d.payout_method) return toast.error('Choose a payout method')
+      if (d.payout_method === 'paypal' && !d.po_paypal) return toast.error('Enter your PayPal email')
+      if (d.payout_method === 'upi' && !d.po_upi) return toast.error('Enter your UPI ID')
+      if (d.payout_method === 'cashapp' && !d.po_cashapp) return toast.error('Enter your CashApp email/tag')
+      if (d.payout_method === 'bank' && (!d.po_bank_acc || !d.po_bank_ifsc)) return toast.error('Enter account number and IFSC')
+    }
+    setStep(s => Math.min(5, s + 1))
+  }
+
+  function buildPayout() {
+    const m = d.payout_method
+    if (m === 'paypal') return { method: 'paypal', details: { email: d.po_paypal } }
+    if (m === 'upi') return { method: 'upi', details: { upi_id: d.po_upi } }
+    if (m === 'cashapp') return { method: 'cashapp', details: { cashapp: d.po_cashapp } }
+    if (m === 'bank') return { method: 'bank', details: { account: d.po_bank_acc, ifsc: d.po_bank_ifsc } }
+    return null
   }
 
   async function launch() {
@@ -68,6 +85,7 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
         username: d.username, display_name: d.display_name, avatar_url: d.avatar_url, country: d.country, bio: d.bio,
         community: { name: d.c_name, slug: d.c_slug || d.c_name, description: d.c_desc, image_url: d.c_image, cover_url: d.c_cover, category: d.c_category, country: d.c_country },
         pricing: { pricing_type: d.pricing_type, billing_period: d.billing_period, price: d.price, currency: d.currency },
+        payout: buildPayout(),
       })
       toast.success('Community launched! Subscribe to a plan to activate it.')
       onLaunched?.(r.community)
@@ -75,6 +93,17 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
   }
 
   const slugPreview = (d.c_slug || d.c_name || 'your-community').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  const isIndia = d.country === 'India'
+  const payoutOptions = isIndia
+    ? [
+        { k: 'upi', icon: Smartphone, t: 'UPI', d: 'Instant payouts to your UPI ID' },
+        { k: 'paypal', icon: Wallet, t: 'PayPal', d: 'Get paid to your PayPal email' },
+        { k: 'bank', icon: Landmark, t: 'Bank account', d: 'Direct bank transfer' },
+      ]
+    : [
+        { k: 'paypal', icon: Wallet, t: 'PayPal', d: 'Get paid to your PayPal email' },
+        { k: 'cashapp', icon: DollarSign, t: 'CashApp', d: 'Get paid via CashApp' },
+      ]
 
   return (
     <div className="min-h-screen bg-grid">
@@ -160,6 +189,30 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
 
           {step === 4 && (
             <div className="space-y-5">
+              <div><h2 className="text-2xl font-bold">Payout method</h2><p className="text-sm text-muted-foreground">Where should we send your earnings? Based on your country ({d.country}).</p></div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {payoutOptions.map(o => (
+                  <button key={o.k} onClick={() => set('payout_method', o.k)} className={cn('rounded-2xl border p-4 text-left transition', d.payout_method === o.k ? 'border-primary bg-primary/10' : 'border-border bg-background hover:border-primary/40')}>
+                    <div className={cn('grid h-10 w-10 place-items-center rounded-xl', d.payout_method === o.k ? 'bg-primary text-primary-foreground' : 'bg-secondary text-primary')}><o.icon className="h-5 w-5" /></div>
+                    <p className="mt-3 font-semibold">{o.t}</p><p className="text-xs text-muted-foreground">{o.d}</p>
+                  </button>
+                ))}
+              </div>
+              {d.payout_method === 'paypal' && <div><Label>PayPal email</Label><Input className="mt-1.5" type="email" value={d.po_paypal} onChange={e => set('po_paypal', e.target.value)} placeholder="you@email.com" /></div>}
+              {d.payout_method === 'upi' && <div><Label>UPI ID</Label><Input className="mt-1.5" value={d.po_upi} onChange={e => set('po_upi', e.target.value)} placeholder="yourname@bank" /></div>}
+              {d.payout_method === 'cashapp' && <div><Label>CashApp email / $cashtag</Label><Input className="mt-1.5" value={d.po_cashapp} onChange={e => set('po_cashapp', e.target.value)} placeholder="$yourtag or email" /></div>}
+              {d.payout_method === 'bank' && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div><Label>Account number</Label><Input className="mt-1.5" value={d.po_bank_acc} onChange={e => set('po_bank_acc', e.target.value)} placeholder="0000 0000 0000" /></div>
+                  <div><Label>IFSC code</Label><Input className="mt-1.5" value={d.po_bank_ifsc} onChange={e => set('po_bank_ifsc', e.target.value.toUpperCase())} placeholder="ABCD0123456" /></div>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">You can update this anytime from Payout settings.</p>
+            </div>
+          )}
+
+          {step === 5 && (
+            <div className="space-y-5">
               <div><h2 className="text-2xl font-bold">Review & launch</h2><p className="text-sm text-muted-foreground">Everything look good? Launch your community.</p></div>
               <div className="overflow-hidden rounded-2xl border border-border">
                 <div className="relative h-24 bg-secondary">{d.c_cover ? <img src={d.c_cover} className="h-full w-full object-cover" alt="" /> : <div className="h-full w-full bg-gradient-to-br from-primary/20 to-purple-600/20" />}</div>
@@ -175,7 +228,7 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
 
           <div className="mt-8 flex items-center justify-between">
             <Button variant="ghost" onClick={() => step === 1 ? onExit?.() : setStep(s => s - 1)}><ArrowLeft className="mr-1 h-4 w-4" /> {step === 1 ? 'Cancel' : 'Back'}</Button>
-            {step < 4 ? <Button onClick={next} className="font-semibold">Continue <ArrowRight className="ml-1 h-4 w-4" /></Button>
+            {step < 5 ? <Button onClick={next} className="font-semibold">Continue <ArrowRight className="ml-1 h-4 w-4" /></Button>
               : <Button onClick={launch} disabled={saving} className="font-semibold glow-lime">{saving ? <Spinner className="text-primary-foreground" /> : <><Rocket className="mr-1 h-4 w-4" /> Launch Community</>}</Button>}
           </div>
         </Card>
