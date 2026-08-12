@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { supabase, API, IMAGES, money, cn } from '@/lib/fanvase'
 import { Logo, Avatar, Spinner } from '@/components/fanvase/atoms'
+import { FooterLinks } from '@/components/fanvase/legal'
 import {
   ArrowRight, Rocket, Compass, DollarSign, Repeat, Zap, Gift, Users, ShieldCheck,
   Sparkles, TrendingUp, Star, Check, PlayCircle, Lock, LinkIcon, FileText, ImageIcon,
@@ -195,9 +196,12 @@ export function Landing({ onStart, onExplore, onLogin }) {
       </section>
 
       <footer className="border-t border-border">
-        <div className="container flex flex-col items-center justify-between gap-4 py-8 text-sm text-muted-foreground md:flex-row">
-          <Logo size="sm" />
-          <p>&copy; {new Date().getFullYear()} Fanvase. All rights reserved.</p>
+        <div className="container flex flex-col items-center gap-6 py-10">
+          <div className="flex w-full flex-col items-center justify-between gap-4 md:flex-row">
+            <Logo size="sm" />
+            <FooterLinks className="justify-center" />
+          </div>
+          <p className="text-sm text-muted-foreground">&copy; {new Date().getFullYear()} Fanvase. All rights reserved.</p>
         </div>
       </footer>
     </div>
