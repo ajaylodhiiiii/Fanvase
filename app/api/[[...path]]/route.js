@@ -496,6 +496,29 @@ async function handleRoute(request, { params }) {
         await adminClient.from('memberships').update({ status: 'cancelled' }).eq('id', body.membership_id)
         return json({ ok: true })
       }
+
+      if (route === '/admin/payouts' && method === 'GET') {
+        const { data: payouts } = await adminClient.from('payouts').select('*').order('created_at', { ascending: false }).limit(200)
+        const ids = [...new Set((payouts || []).map(p => p.creator_id))]
+        const { data: creators } = await adminClient.from('profiles').select('id,username,display_name,email,payout_method,payout_details').in('id', ids.length ? ids : ['x'])
+        const cmap = Object.fromEntries((creators || []).map(c => [c.id, c]))
+        return json({ payouts: (payouts || []).map(p => ({ ...p, creator: cmap[p.creator_id] || null })) })
+      }
+
+      if (route === '/admin/update-payout' && method === 'POST') {
+        const body = await request.json()
+        const status = ['pending', 'processing', 'paid'].includes(body.status) ? body.status : 'processing'
+        const { data: payout } = await adminClient.from('payouts').select('*').eq('id', body.payout_id).single()
+        if (!payout) return json({ error: 'Payout not found' }, 404)
+        await adminClient.from('payouts').update({ status }).eq('id', body.payout_id)
+        if (status === 'paid') {
+          const { data: bal } = await adminClient.from('creator_balances').select('*').eq('creator_id', payout.creator_id).maybeSingle()
+          if (bal) await adminClient.from('creator_balances').update({ pending: Math.max(0, Number(bal.pending) - Number(payout.amount)), updated_at: new Date().toISOString() }).eq('creator_id', payout.creator_id)
+          await adminClient.from('notifications').insert({ user_id: payout.creator_id, type: 'payout', title: 'Payout sent', body: `Your payout of $${payout.amount} has been paid.` })
+        }
+        return json({ ok: true })
+      }
+
       return json({ error: 'Admin route not found' }, 404)
     }
 

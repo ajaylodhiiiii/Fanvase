@@ -360,6 +360,7 @@ function Plans({ profile, onReload }) {
 function Earnings({ profile }) {
   const [data, setData] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const load = () => API.get('/creator/earnings').then(setData).catch(() => setData({}))
   useEffect(() => { load() }, [])
   if (!data) return <FullLoader />
@@ -390,6 +391,7 @@ function Earnings({ profile }) {
             <div>
               <p className="text-sm text-muted-foreground">Payout method</p>
               <p className="font-semibold">{methodLabel}{methodValue ? ` · ${methodValue}` : ''}</p>
+              <button onClick={() => setEditOpen(true)} className="mt-0.5 text-xs font-medium text-primary hover:underline">{method ? 'Edit method' : 'Add payout method'}</button>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -399,6 +401,8 @@ function Earnings({ profile }) {
         </div>
         {!method && <p className="mt-3 text-xs text-amber-300">No payout method set yet — add one to enable withdrawals.</p>}
       </Card>
+
+      <PayoutMethodDialog open={editOpen} setOpen={setEditOpen} profile={profile} current={{ method, det }} onSaved={load} />
 
       {(data.payouts && data.payouts.length > 0) && (
         <Section title="Payout history">
@@ -433,6 +437,51 @@ function Earnings({ profile }) {
         )}
       </Section>
     </div>
+  )
+}
+
+/* ---------- ANALYTICS ---------- */
+function PayoutMethodDialog({ open, setOpen, profile, current, onSaved }) {
+  const isIndia = profile?.country === 'India'
+  const options = isIndia ? [['upi', 'UPI'], ['paypal', 'PayPal'], ['bank', 'Bank account']] : [['paypal', 'PayPal'], ['cashapp', 'CashApp']]
+  const [method, setMethod] = useState(current?.method || (isIndia ? 'upi' : 'paypal'))
+  const [paypal, setPaypal] = useState('')
+  const [upi, setUpi] = useState('')
+  const [cashapp, setCashapp] = useState('')
+  const [acc, setAcc] = useState('')
+  const [ifsc, setIfsc] = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    if (open) {
+      const d = current?.det || {}
+      setMethod(current?.method || (isIndia ? 'upi' : 'paypal'))
+      setPaypal(d.email || ''); setUpi(d.upi_id || ''); setCashapp(d.cashapp || ''); setAcc(d.account || ''); setIfsc(d.ifsc || '')
+    }
+  }, [open])
+  async function save() {
+    let details = {}
+    if (method === 'paypal') { if (!paypal) return toast.error('Enter PayPal email'); details = { email: paypal } }
+    else if (method === 'upi') { if (!upi) return toast.error('Enter UPI ID'); details = { upi_id: upi } }
+    else if (method === 'cashapp') { if (!cashapp) return toast.error('Enter CashApp email/tag'); details = { cashapp } }
+    else if (method === 'bank') { if (!acc || !ifsc) return toast.error('Enter account number & IFSC'); details = { account: acc, ifsc } }
+    setBusy(true)
+    try { await API.post('/creator/payout-method', { method, details }); toast.success('Payout method updated'); setOpen(false); onSaved?.() }
+    catch (e) { toast.error(e.message) } finally { setBusy(false) }
+  }
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Payout method</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">{options.map(([k, l]) => <button key={k} onClick={() => setMethod(k)} className={cn('rounded-xl border px-3 py-2 text-sm', method === k ? 'border-primary bg-primary/10 text-primary' : 'border-border')}>{l}</button>)}</div>
+          {method === 'paypal' && <div><Label>PayPal email</Label><Input className="mt-1.5" value={paypal} onChange={e => setPaypal(e.target.value)} placeholder="you@email.com" /></div>}
+          {method === 'upi' && <div><Label>UPI ID</Label><Input className="mt-1.5" value={upi} onChange={e => setUpi(e.target.value)} placeholder="name@bank" /></div>}
+          {method === 'cashapp' && <div><Label>CashApp email / $tag</Label><Input className="mt-1.5" value={cashapp} onChange={e => setCashapp(e.target.value)} placeholder="$yourtag" /></div>}
+          {method === 'bank' && <div className="grid gap-3 sm:grid-cols-2"><div><Label>Account number</Label><Input className="mt-1.5" value={acc} onChange={e => setAcc(e.target.value)} /></div><div><Label>IFSC</Label><Input className="mt-1.5" value={ifsc} onChange={e => setIfsc(e.target.value.toUpperCase())} /></div></div>}
+        </div>
+        <DialogFooter><Button onClick={save} disabled={busy} className="font-semibold">{busy ? <Spinner className="text-primary-foreground" /> : 'Save method'}</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

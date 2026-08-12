@@ -8,12 +8,13 @@ import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { API, money, cn } from '@/lib/fanvase'
 import { Logo, Avatar, FullLoader, KPICard, StatusBadge, Section, EmptyState, Spinner } from '@/components/fanvase/atoms'
-import { LayoutDashboard, Users, Radio, UserPlus, LogOut, DollarSign, Check, Link2, Menu, X, ShieldCheck } from 'lucide-react'
+import { LayoutDashboard, Users, Radio, UserPlus, LogOut, DollarSign, Check, Link2, Menu, X, ShieldCheck, Banknote, Clock } from 'lucide-react'
 
 const NAV = [
   { k: 'overview', t: 'Overview', icon: LayoutDashboard },
   { k: 'communities', t: 'Communities', icon: Radio },
   { k: 'members', t: 'Add Members', icon: UserPlus },
+  { k: 'payouts', t: 'Payouts', icon: Banknote },
   { k: 'users', t: 'Users', icon: Users },
 ]
 
@@ -40,6 +41,7 @@ export function AdminPanel({ profile, onExit, onLogout }) {
           {view === 'overview' && <AdminOverview />}
           {view === 'communities' && <AdminCommunities />}
           {view === 'members' && <AdminAddMember />}
+          {view === 'payouts' && <AdminPayouts />}
           {view === 'users' && <AdminUsers />}
         </main>
       </div>
@@ -129,6 +131,48 @@ function AdminAddMember() {
         </div>
       </Card>
     </div>
+  )
+}
+
+function fmtPayout(creator) {
+  if (!creator?.payout_method) return 'No payout method set'
+  const d = creator.payout_details || {}
+  const m = creator.payout_method
+  if (m === 'paypal') return `PayPal · ${d.email || ''}`
+  if (m === 'upi') return `UPI · ${d.upi_id || ''}`
+  if (m === 'cashapp') return `CashApp · ${d.cashapp || ''}`
+  if (m === 'bank') return `Bank · A/C ${d.account || ''} · IFSC ${d.ifsc || ''}`
+  return m
+}
+
+function AdminPayouts() {
+  const [list, setList] = useState(null)
+  const [busy, setBusy] = useState('')
+  const load = () => API.get('/admin/payouts').then(r => setList(r.payouts)).catch(() => setList([]))
+  useEffect(() => { load() }, [])
+  async function setStatus(p, status) { setBusy(p.id); try { await API.post('/admin/update-payout', { payout_id: p.id, status }); toast.success(`Payout marked ${status}`); load() } catch (e) { toast.error(e.message) } finally { setBusy('') } }
+  if (list === null) return <FullLoader />
+  return (
+    <Section title="Payouts" desc="Review creator withdrawals and mark them processing or paid.">
+      {list.length === 0 ? <EmptyState icon={Banknote} title="No payout requests yet" desc="Creator withdrawals will appear here." /> : (
+        <div className="space-y-3">{list.map(p => (
+          <Card key={p.id} className="border-border bg-card p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-xl bg-primary/15 text-primary"><Banknote className="h-5 w-5" /></div>
+              <div className="min-w-0 flex-1"><p className="font-semibold">{money(p.amount)} <span className="text-xs font-normal text-muted-foreground">to @{p.creator?.username || 'creator'}</span></p><p className="text-xs text-muted-foreground">{p.creator?.email} · {new Date(p.created_at).toLocaleDateString()}</p></div>
+              <StatusBadge status={p.status} />
+            </div>
+            <div className="mt-3 rounded-xl border border-border bg-background p-3 text-sm"><span className="text-muted-foreground">Send to: </span><span className="font-medium">{fmtPayout(p.creator)}</span></div>
+            {p.status !== 'paid' && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {p.status === 'pending' && <Button size="sm" variant="secondary" disabled={busy === p.id} onClick={() => setStatus(p, 'processing')}><Clock className="mr-1 h-3.5 w-3.5" /> Mark processing</Button>}
+                <Button size="sm" disabled={busy === p.id} onClick={() => setStatus(p, 'paid')}>{busy === p.id ? <Spinner /> : <><Check className="mr-1 h-3.5 w-3.5" /> Mark paid</>}</Button>
+              </div>
+            )}
+          </Card>
+        ))}</div>
+      )}
+    </Section>
   )
 }
 

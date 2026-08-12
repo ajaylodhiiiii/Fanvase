@@ -273,6 +273,38 @@ backend:
         -working: true
         -agent: "testing"
         -comment: "✅ TESTED (Round 2): POST /api/creator/payout-method working correctly. Updated payout method from 'paypal' to 'upi' with details:{upi_id:'test@upi'} - update successful (200), GET /api/me confirmed payout_method='upi'."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ RE-TESTED (Round 3): POST /api/creator/payout-method working correctly. Updated payout method to 'upi' with details:{upi_id:'c@upi'} - update successful (200), GET /api/me confirmed payout_method='upi'."
+  - task: "GET /api/admin/payouts (admin payout queue with creator details)"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW endpoint GET /api/admin/payouts (admin only). Returns payouts list with creator details including username, email, payout_method, payout_details. Non-admin -> 403."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ TESTED (Round 3): GET /api/admin/payouts working correctly. Returns payouts array with creator details including payout_method and payout_details. Verified in end-to-end flow: after creator withdrew, admin GET /api/admin/payouts showed pending payout with status='pending', creator.payout_method='paypal', creator.payout_details.email='c@pay.com'. Authorization verified: non-admin calling endpoint returns 403."
+  - task: "POST /api/admin/update-payout (admin payout status management)"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW endpoint POST /api/admin/update-payout {payout_id, status} (admin only). Status can be 'pending', 'processing', or 'paid'. When status='paid', reduces creator_balances.pending by payout amount and sends notification. Non-admin -> 403."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ TESTED (Round 3): POST /api/admin/update-payout working correctly. Tested full lifecycle: (1) Updated payout status from 'pending' to 'processing' - successful (200), verified status changed via GET /api/admin/payouts. (2) Updated payout status from 'processing' to 'paid' - successful (200), verified creator's balance.pending reduced from 9 to 0, payout status changed to 'paid' in creator's GET /api/creator/earnings. Authorization verified: non-admin calling endpoint returns 403."
+
 
 frontend:
   - task: "Full Fanvase SPA (landing, auth, onboarding, creator dashboard, fan app, admin, public community, discover)"
@@ -281,23 +313,22 @@ frontend:
     file: "app/page.js + components/fanvase/*"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
         -working: "NA"
         -agent: "main"
-        -comment: "Built but NOT yet tested by frontend agent. Do not test until user approves."
+        -comment: "User approved frontend testing. Focus: (1) Landing renders desktop+mobile. (2) Signup as CREATOR: /?auth=signup -> role step -> Continue -> account form (must show Referral code field + Continue with Google button) -> fill unique email/password -> Create account (server-side signup auto-confirms so login works instantly). (3) Onboarding wizard 5 steps: Creator (username availability check), Community, Pricing, PAYOUT (country-aware: default country United States -> options PayPal+CashApp; if you change country field is only on step 1 so payout shows US options; to see India options is optional), Review -> Launch. (4) Creator dashboard: Overview loads KPIs+chart, sidebar shows 'Payout' (not 'Earnings'). Content -> Create Post (text) publishes. Payout page shows payout method card with 'Edit method' button opening dialog + Withdraw button (disabled at 0 balance). Manage Plans page shows Basic/Pro; clicking opens external checkout in NEW TAB (do not complete payment). (5) Fan: signup as fan -> bottom nav (Communities/Discover/Refer) on mobile; Discover search works. (6) Mobile responsiveness (viewport 390x844) for landing, dashboard drawer, fan bottom nav. NOTE: Do NOT click 'Continue with Google' (provider may be unconfigured). Admin UI requires owner's known email/password (ajayylodhi09@gmail.com) which is unavailable to you — SKIP admin login; admin APIs already verified separately."
 
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 2
+  test_sequence: 3
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Creator onboarding with payout method (POST /api/onboarding/creator accepts payout:{method, details})"
-    - "GET /api/creator/earnings includes payout_method and payout_details fields"
-    - "POST /api/creator/withdraw with guardrails (requires payout_method and available>0)"
+    - "GET /api/admin/payouts (admin payout queue with creator details)"
+    - "POST /api/admin/update-payout (admin payout status management)"
     - "POST /api/creator/payout-method to update payout info"
   stuck_tasks: []
   test_all: false
@@ -305,8 +336,9 @@ test_plan:
 
 agent_communication:
     -agent: "main"
-    -message: "NEW CHANGES to test (round 2). Added payout support. (1) POST /api/onboarding/creator now also accepts payout:{method, details} and saves to profiles.payout_method + profiles.payout_details (jsonb columns just added). Verify a creator onboarding with payout {method:'paypal', details:{email:'x@y.com'}} succeeds and GET /api/me shows profile.payout_method='paypal'. (2) GET /api/creator/earnings now returns payout_method + payout_details. (3) NEW POST /api/creator/withdraw: requires a payout_method set AND available>0; creates a payouts row (pending), moves available->pending, logs a payout transaction. Test: as a creator with 0 balance and no payout method -> expect 400 'Add a payout method first'; after onboarding with payout method but still 0 balance -> expect 400 'No available balance'; then have admin add a member to the creator's ACTIVE community (via /api/admin/add-member) so available>0, then POST /api/creator/withdraw -> expect ok, and GET /api/creator/earnings shows a pending payout + available reset to 0. (4) NEW POST /api/creator/payout-method {method, details} updates the profile. Please also re-verify the core signup->onboarding->admin add-member flow still works. Auth: POST /api/auth/signup then Supabase token endpoint for Bearer token (see earlier note). Admin email: ajayylodhi09@gmail.com."
+    -message: "ROUND 3 new endpoints to test. (1) GET /api/admin/payouts (admin only) -> returns payouts list, each with creator {username,email,payout_method,payout_details}. (2) POST /api/admin/update-payout {payout_id, status} where status in processing|paid. When status='paid': reduce that creator's creator_balances.pending by the payout amount and notify creator. Non-admin -> 403. (3) POST /api/creator/payout-method {method, details} updates the caller's profile (already existed, re-verify). END-TO-END: signup creator, onboard (with payout paypal), admin activate community + add-member so available>0, creator POST /api/creator/withdraw (available->pending, creates pending payout). Then admin GET /api/admin/payouts should show that payout as pending with creator payout details; admin POST /api/admin/update-payout {payout_id, status:'processing'} -> ok; then {status:'paid'} -> ok and creator's GET /api/creator/earnings shows balance.pending reduced by the amount and the payout status 'paid'. Also verify non-admin calling /api/admin/payouts -> 403. Auth via Bearer token (Supabase token endpoint). Admin email ajayylodhi09@gmail.com. Only test these + a quick regression of /api/creator/withdraw."
     -agent: "testing"
     -message: "✅ BACKEND TESTING COMPLETE: All 39 tests passed (100% success rate). Tested flows: (A) Public endpoints - categories, communities, search, community detail with 404 handling. (B) Creator journey - signup, auth token, /me, username availability, onboarding with pending community, post CRUD, dashboard KPIs/members/earnings, referrals, platform subscribe. (C) Public community visibility - pending communities not listed, members-only posts hidden. (D) Fan journey - signup, /me with role=fan, fan/communities. (E) Referral attribution - signup with ref parameter creates pending referral. (F) Admin flow - overview/users/communities endpoints, update-community (activate), activate-platform, add-member (creates membership, transaction, updates balance), referral conversion ($10 reward when referred creator gets first subscriber). (G) Authorization - admin endpoints return 403 for non-admin, creator endpoints return 403 for fan, /me returns user=null without auth. Bearer token authentication working correctly. No critical issues found."
     -agent: "testing"
-    -message: "✅ PAYOUT FEATURES TESTING COMPLETE (Round 2): All 18 payout tests passed (100% success rate). Tested: (1) Creator onboarding WITH payout method - creator onboarded with payout:{method:'paypal', details:{email:'pay@test.com'}}, GET /api/me confirmed payout_method='paypal'. (2) GET /api/creator/earnings includes payout_method and payout_details fields - verified both fields present. (3) Withdraw guardrails - tested no payout method (400 'Add a payout method first'), 0 balance (400 'No available balance to withdraw'). (4) Full earning + withdraw flow - admin activated community, added member (balance=9), creator withdrew successfully, balance.available=0, balance.pending=9, 1 pending payout created. (5) POST /api/creator/payout-method - updated from 'paypal' to 'upi', verified via GET /api/me. (6) Regression tests - onboarding without payout still works, GET /api/communities works, POST /api/platform/subscribe works with platform_status='pending'. NO CRITICAL ISSUES. All payout features working as expected."
+    -message: "✅ PAYOUT FEATURES TESTING COMPLETE (Round 2): All 18 payout tests passed (100% success rate). Tested: (1) Creator onboarding WITH payout method - creator onboarded with payout:{method:'paypal', details:{email:'pay@test.com'}}, GET /api/me confirmed payout_method='paypal'. (2) GET /api/creator/earnings includes payout_method and payout_details fields - verified both fields present. (3) Withdraw guardrails - tested no payout method (400 'Add a payout method first'), 0 balance (400 'No available balance to withdraw'). (4) Full earning + withdraw flow - admin activated community, added member (balance=9), creator withdrew successfully, balance.available=0, balance.pending=9, 1 pending payout created. (5) POST /api/creator/payout-method - updated from 'paypal' to 'upi', verified via GET /api/me. (6) Regression tests - onboarding without payout still works, GET /api/communities works, POST /api/platform/subscribe works with platform_status='pending'. NO CRITICAL ISSUES. All payout features working as expected."    -agent: "testing"
+    -message: "✅ ADMIN PAYOUT QUEUE TESTING COMPLETE (Round 3): All 22 tests passed (100% success rate). Tested: (1) END-TO-END payout lifecycle (15 tests) - creator signup, onboarding with payout method (paypal), fan signup, admin activate community, admin add member (creator balance=9), creator withdraw (available->pending, payout created), admin GET /api/admin/payouts (shows pending payout with creator.payout_method='paypal' and creator.payout_details.email='c@pay.com'), admin update payout to 'processing' (status updated), admin update payout to 'paid' (creator balance.pending reduced from 9 to 0, payout status='paid'). (2) POST /api/creator/payout-method (4 tests) - updated payout method to 'upi' with upi_id='c@upi', verified via GET /api/me. (3) Authorization tests (2 tests) - non-admin calling GET /api/admin/payouts returns 403, non-admin calling POST /api/admin/update-payout returns 403. (4) Regression test (1 test) - creator with no available balance calling POST /api/creator/withdraw returns 400 'No available balance to withdraw'. NO CRITICAL ISSUES. All admin payout queue endpoints working as expected."
