@@ -5,9 +5,10 @@ import { Loader2 } from 'lucide-react'
 
 export function Logo({ size = 'md', onClick }) {
   const s = size === 'lg' ? 'text-3xl' : size === 'sm' ? 'text-lg' : 'text-2xl'
+  const box = size === 'lg' ? 'h-10 w-10' : size === 'sm' ? 'h-7 w-7' : 'h-9 w-9'
   return (
     <button onClick={onClick} className={cn('flex items-center gap-2 font-extrabold tracking-tight', s)}>
-      <span className="grid place-items-center h-8 w-8 rounded-xl bg-primary text-primary-foreground font-black">F</span>
+      <img src="/fanvase-logo.jpeg" alt="Fanvase logo" className={cn('rounded-lg object-cover', box)} />
       <span>Fan<span className="text-primary">vase</span></span>
     </button>
   )

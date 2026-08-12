@@ -21,7 +21,7 @@ export function FooterLinks({ className }) {
 function Wordmark() {
   return (
     <a href="/" className="flex items-center gap-2 text-xl font-extrabold tracking-tight">
-      <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary font-black text-primary-foreground">F</span>
+      <img src="/fanvase-logo.jpeg" alt="Fanvase logo" className="h-8 w-8 rounded-lg object-cover" />
       <span>Fan<span className="text-primary">vase</span></span>
     </a>
   )

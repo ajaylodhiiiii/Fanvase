@@ -334,9 +334,21 @@ test_plan:
   test_all: false
   test_priority: "high_first"
 
+  - task: "Mobile: fix horizontal scroll/zoom on homepage & login; logo/name clarity; sitemap/robots"
+    implemented: true
+    working: "NA"
+    file: "app/globals.css, app/layout.js, components/fanvase/atoms.js, app/sitemap.js, app/robots.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "User reported horizontal scrolling/zoom on mobile for homepage (/) and login/signup (/?auth=login and /?auth=signup). Fixes: added html,body { overflow-x: clip; max-width:100% } in globals.css; added viewport export (width=device-width, initialScale 1, maximumScale 5) in layout.js; replaced text logo with real /fanvase-logo.jpeg image in Logo (atoms.js) and legal Wordmark. Added /sitemap.xml (app/sitemap.js) and /robots.txt (app/robots.js). Verify: on mobile viewports 390x844 AND 360x740, load '/', '/?auth=login', '/?auth=signup' and confirm NO horizontal overflow (document.documentElement.scrollWidth <= window.innerWidth + 1) and no forced desktop zoom-out. Confirm the Fanvase logo image (/fanvase-logo.jpeg) loads in the header and the 'Fanvase' wordmark is visible. Confirm legal pages (/about,/privacy,/terms,/refund,/contact) have no horizontal overflow on mobile too."
+
 agent_communication:
     -agent: "main"
-    -message: "MIGRATION VERIFICATION. The app was migrated to a NEW Supabase project (URL/keys in /app/.env updated; schema, RLS policy, payout columns, and storage buckets recreated identically). NO code/logic changes. Please run a concise end-to-end smoke test against the NEW project to confirm everything works: (1) public GET /api/categories + GET /api/communities. (2) Creator signup -> Bearer token (Supabase token endpoint using NEW anon key + URL from /app/.env) -> GET /api/me -> POST /api/onboarding/creator (with payout paypal) -> POST /api/posts -> GET /api/creator/overview. (3) Admin: signup ajayylodhi09@gmail.com (auto admin, fresh in new project) -> GET /api/admin/overview -> activate the creator community -> add-member -> confirm creator earnings>0 -> creator withdraw -> admin GET /api/admin/payouts shows it -> mark paid. (4) Upload: POST /api/upload a tiny image to confirm storage bucket works in new project. Report pass/fail. This confirms the migration succeeded."
+    -message: "FRONTEND MOBILE BUG VERIFICATION. Please verify the reported mobile horizontal-scroll/zoom bug is fixed. Test on MOBILE viewports 390x844 and 360x740. For each of these URLs measure horizontal overflow via page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth) and assert it is <= 1 (no horizontal scroll): '/', '/?auth=login', '/?auth=signup', '/about', '/privacy', '/terms', '/refund', '/contact'. Also confirm: (a) header logo image at /fanvase-logo.jpeg loads (naturalWidth>0) and the text 'Fanvase' is visible; (b) a viewport meta tag exists with width=device-width; (c) GET /sitemap.xml and /robots.txt return 200 (can check via navigating). Report per-URL overflow numbers. Do NOT need to test auth submit or other flows. Base URL: NEXT_PUBLIC_BASE_URL in /app/.env."
     -agent: "testing"
     -message: "✅ BACKEND TESTING COMPLETE: All 39 tests passed (100% success rate). Tested flows: (A) Public endpoints - categories, communities, search, community detail with 404 handling. (B) Creator journey - signup, auth token, /me, username availability, onboarding with pending community, post CRUD, dashboard KPIs/members/earnings, referrals, platform subscribe. (C) Public community visibility - pending communities not listed, members-only posts hidden. (D) Fan journey - signup, /me with role=fan, fan/communities. (E) Referral attribution - signup with ref parameter creates pending referral. (F) Admin flow - overview/users/communities endpoints, update-community (activate), activate-platform, add-member (creates membership, transaction, updates balance), referral conversion ($10 reward when referred creator gets first subscriber). (G) Authorization - admin endpoints return 403 for non-admin, creator endpoints return 403 for fan, /me returns user=null without auth. Bearer token authentication working correctly. No critical issues found."
     -agent: "testing"
