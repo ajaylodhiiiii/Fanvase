@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { toast } from 'sonner'
 import { API, money, timeAgo, cn } from '@/lib/fanvase'
+import { RATE_NOTE } from '@/lib/currency'
 import { Logo, Avatar, Spinner, StatusBadge, KPICard, EmptyState, FullLoader, Section } from '@/components/fanvase/atoms'
 import { ReferralPanel } from '@/components/fanvase/shared'
 import {
@@ -320,18 +321,13 @@ function Plans({ profile, onReload }) {
   ]
   async function subscribe(k) {
     setBusy(k)
-    const LINKS = {
-      india: { basic: 'https://topmate.io/earnify/membership/89', pro: 'https://topmate.io/earnify/membership/90' },
-      other: { basic: 'https://checkout.dodopayments.com/buy/pdt_0NdP9397LP3ErawjkZKca?quantity=1000', pro: 'https://checkout.dodopayments.com/buy/pdt_0NcsAkONrZNeshm0HK50V?quantity=1000' },
-    }
     try {
-      await API.post('/platform/subscribe', { plan: k })
-      const region = profile?.country === 'India' ? 'india' : 'other'
-      const url = LINKS[region][k]
-      window.open(url, '_blank')
-      toast.success('Complete payment in the new tab. Your plan activates once we confirm it.')
-      onReload?.()
-    } catch (e) { toast.error(e.message) } finally { setBusy('') }
+      // Server creates a Dodo Payments checkout session; we send the creator to it.
+      // After paying, Dodo redirects to /subscribed.
+      const { checkout_url } = await API.post('/platform/subscribe', { plan: k })
+      if (!checkout_url) throw new Error('Could not start checkout. Please try again.')
+      window.location.href = checkout_url
+    } catch (e) { toast.error(e.message); setBusy('') }
   }
   return (
     <div className="space-y-6">
@@ -376,7 +372,7 @@ function Earnings({ profile }) {
   }
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold tracking-tight">Payout</h1><p className="text-sm text-muted-foreground">Track your revenue and withdraw your balance.</p></div>
+      <div><h1 className="text-2xl font-bold tracking-tight">Payout</h1><p className="text-sm text-muted-foreground">Track your revenue and withdraw your balance.</p><p className="mt-1 text-xs font-medium text-primary">{RATE_NOTE}</p></div>
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <KPICard label="Available balance" value={money(b.available)} icon={DollarSign} />
         <KPICard label="Pending payout" value={money(b.pending)} icon={Wallet} accent="purple" />
@@ -400,6 +396,7 @@ function Earnings({ profile }) {
           </div>
         </div>
         {!method && <p className="mt-3 text-xs text-amber-300">No payout method set yet — add one to enable withdrawals.</p>}
+        <p className="mt-3 text-xs text-muted-foreground">Exchange rate: <span className="font-semibold text-foreground">{RATE_NOTE}</span>. Balances are in USD; sales in &#8377; are converted at this rate.</p>
       </Card>
 
       <PayoutMethodDialog open={editOpen} setOpen={setEditOpen} profile={profile} current={{ method, det }} onSaved={load} />
