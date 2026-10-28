@@ -11,13 +11,18 @@ module.exports = {
     theme: {
       container: {
         center: true,
-        padding: '2rem',
+        // Tight gutters on phones (320px screens keep 288px of content), roomier on desktop.
+        padding: { DEFAULT: '1rem', sm: '1.5rem', lg: '2rem' },
         screens: {
           '2xl': '1400px'
         }
       },
       extend: {
+        fontFamily: {
+          sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        },
         colors: {
+          'accent-purple': 'hsl(var(--accent-purple))',
           border: 'hsl(var(--border))',
           input: 'hsl(var(--input))',
           ring: 'hsl(var(--ring))',
