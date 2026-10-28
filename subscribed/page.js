@@ -18,7 +18,7 @@ export default function SubscribedPage() {
   }, [])
 
   return (
-    <div className="grid min-h-screen place-items-center bg-background px-4">
+    <div className="grid min-h-[100dvh] place-items-center bg-background px-4">
       <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 text-center">
         <div className="mb-6 flex justify-center"><Logo size="sm" onClick={() => (window.location.href = '/')} /></div>
         {failed ? (
