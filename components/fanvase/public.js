@@ -11,7 +11,7 @@ import { Logo, Avatar, Spinner } from '@/components/fanvase/atoms'
 import { FooterLinks } from '@/components/fanvase/legal'
 import {
   ArrowRight, Rocket, Compass, DollarSign, Repeat, Zap, Gift, Users, ShieldCheck,
-  Sparkles, TrendingUp, Star, Check, PlayCircle, Lock, LinkIcon, FileText, ImageIcon,
+  Sparkles, TrendingUp, Check, Lock, LinkIcon, FileText, ImageIcon,
 } from 'lucide-react'
 
 function GoogleIcon() {
@@ -41,15 +41,15 @@ export function Landing({ onStart, onExplore, onLogin }) {
       {/* NAV */}
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between">
-          <Logo />
+          <span className="sm:hidden"><Logo size="sm" /></span><span className="hidden sm:block"><Logo /></span>
           <nav className="hidden items-center gap-7 text-sm text-muted-foreground md:flex">
             <a href="#how" className="hover:text-foreground">How it works</a>
             <a href="#creators" className="hover:text-foreground">For creators</a>
             <button onClick={onExplore} className="hover:text-foreground">Discover</button>
           </nav>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={onLogin}>Log in</Button>
-            <Button onClick={onStart} className="font-semibold">Start Creating</Button>
+            <Button variant="ghost" onClick={onLogin} className="h-9 px-3 text-[13px] sm:h-10 sm:px-4 sm:text-sm">Log in</Button>
+            <Button onClick={onStart} className="h-9 px-3 text-[13px] font-semibold sm:h-10 sm:px-4 sm:text-sm"><span className="sm:hidden">Get started</span><span className="hidden sm:inline">Start Creating</span></Button>
           </div>
         </div>
       </header>
@@ -57,43 +57,41 @@ export function Landing({ onStart, onExplore, onLogin }) {
       {/* HERO */}
       <section className="relative overflow-hidden bg-grid">
         <div className="pointer-events-none absolute -top-32 left-1/2 h-[420px] w-[820px] -translate-x-1/2 rounded-full bg-primary/20 blur-[140px]" />
-        <div className="container relative grid gap-10 py-16 md:grid-cols-2 md:py-24 md:items-center">
+        <div className="container relative grid grid-cols-1 gap-10 py-16 md:grid-cols-2 md:py-24 md:items-center">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
               <Sparkles className="h-3.5 w-3.5 text-primary" /> The creator membership platform
             </span>
-            <h1 className="mt-5 text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
-              Turn your audience into a <span className="text-gradient-lime">community</span>.
+            <h1 className="mt-5 text-[2.5rem] font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
+              Turn your audience into a <span className="text-gradient-lime">income</span>.
             </h1>
-            <p className="mt-5 max-w-md text-lg text-muted-foreground">
+            <p className="mt-5 max-w-md text-base text-muted-foreground sm:text-lg">
               Fanvase lets creators build paid communities and earn recurring or one-time revenue from their biggest fans — all from one beautiful channel.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button size="lg" onClick={onStart} className="h-12 px-7 text-base font-semibold glow-lime">
+              <Button size="lg" onClick={onStart} className="h-12 w-full px-7 text-base font-semibold glow-lime sm:w-auto">
                 Start Creating <ArrowRight className="ml-1 h-4 w-4" />
               </Button>
-              <Button size="lg" variant="outline" onClick={onExplore} className="h-12 px-7 text-base">
+              <Button size="lg" variant="outline" onClick={onExplore} className="h-12 w-full px-7 text-base sm:w-auto">
                 <Compass className="mr-1 h-4 w-4" /> Explore Communities
               </Button>
             </div>
-            <div className="mt-8 flex items-center gap-4 text-sm text-muted-foreground">
-              <div className="flex -space-x-2">
-                {[IMAGES.p1, IMAGES.p2, IMAGES.p3].map((s, i) => <Avatar key={i} src={s} size={32} className="ring-2 ring-background" />)}
-              </div>
-              <span>Join <b className="text-foreground">2,400+</b> creators building on Fanvase</span>
-            </div>
+            <ul className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+              {['Recurring or one-time pricing', 'Secure checkout', 'Refer & Earn rewards'].map(t => (
+                <li key={t} className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" aria-hidden="true" /> {t}</li>
+              ))}
+            </ul>
           </div>
           <div className="relative">
             <div className="absolute -inset-4 rounded-[2rem] bg-primary/10 blur-2xl" />
-            <div className="relative overflow-hidden rounded-[2rem] border border-border">
-              <img src={IMAGES.hero} alt="Creator" className="h-[420px] w-full object-cover" />
+            <div className="relative overflow-hidden rounded-3xl border border-border">
+              <img src={IMAGES.hero} alt="Creator filming in a studio" width={1200} height={800} fetchPriority="high" className="h-[280px] w-full object-cover sm:h-[420px]" />
               <div className="absolute inset-x-4 bottom-4 rounded-2xl border border-border bg-background/85 p-4 backdrop-blur-md">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/15 text-primary"><TrendingUp className="h-5 w-5" /></div>
-                    <div><p className="text-xs text-muted-foreground">Monthly recurring revenue</p><p className="text-lg font-bold">{money(12480)}</p></div>
+                    <div className="min-w-0"><p className="text-xs text-muted-foreground">Recurring memberships</p><p className="text-sm font-semibold sm:text-base">Predictable income from your biggest fans</p></div>
                   </div>
-                  <span className="rounded-full bg-primary/15 px-2 py-1 text-xs font-semibold text-primary">+18%</span>
                 </div>
               </div>
             </div>
@@ -107,7 +105,7 @@ export function Landing({ onStart, onExplore, onLogin }) {
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">How Fanvase works</h2>
           <p className="mt-3 text-muted-foreground">From zero to a monetized community in four simple steps.</p>
         </div>
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((s, i) => (
             <Card key={i} className="relative border-border bg-card p-6">
               <span className="absolute right-5 top-5 text-4xl font-black text-secondary">{i + 1}</span>
@@ -121,12 +119,12 @@ export function Landing({ onStart, onExplore, onLogin }) {
 
       {/* FEATURES */}
       <section id="creators" className="border-y border-border bg-card/40">
-        <div className="container grid gap-12 py-16 md:grid-cols-2 md:py-24 md:items-center">
+        <div className="container grid grid-cols-1 gap-12 py-16 md:grid-cols-2 md:py-24 md:items-center">
           <div>
             <span className="text-sm font-semibold text-primary">Creator monetization</span>
             <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Everything you need to earn from your audience</h2>
             <p className="mt-3 text-muted-foreground">Flexible pricing, exclusive content, and a referral engine — designed to grow your recurring income.</p>
-            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
               {feats.map((f, i) => (
                 <div key={i} className="rounded-2xl border border-border bg-background p-5">
                   <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/15 text-primary"><f.icon className="h-5 w-5" /></div>
@@ -138,16 +136,16 @@ export function Landing({ onStart, onExplore, onLogin }) {
           </div>
           <div className="relative">
             <div className="absolute -inset-3 rounded-[2rem] bg-purple-600/10 blur-2xl" />
-            <img src={IMAGES.edit} alt="Studio" className="relative h-[440px] w-full rounded-[2rem] border border-border object-cover" />
+            <img src={IMAGES.edit} alt="Creator editing content" width={1200} height={800} loading="lazy" className="relative h-[280px] w-full sm:h-[440px] rounded-3xl border border-border object-cover" />
           </div>
         </div>
       </section>
 
       {/* FAN EXPERIENCE */}
       <section className="container py-16 md:py-24">
-        <div className="grid gap-12 md:grid-cols-2 md:items-center">
+        <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:items-center">
           <div className="order-2 md:order-1 relative">
-            <img src={IMAGES.studio} alt="Fan experience" className="h-[400px] w-full rounded-[2rem] border border-border object-cover" />
+            <img src={IMAGES.studio} alt="Fans enjoying a creator community" width={1200} height={800} loading="lazy" className="h-[260px] w-full sm:h-[400px] rounded-3xl border border-border object-cover" />
           </div>
           <div className="order-1 md:order-2">
             <span className="text-sm font-semibold text-purple-300">The fan experience</span>
@@ -163,22 +161,24 @@ export function Landing({ onStart, onExplore, onLogin }) {
         </div>
       </section>
 
-      {/* TESTIMONIALS */}
+      {/* TRUST */}
       <section className="border-t border-border bg-card/40">
         <div className="container py-16 md:py-24">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Loved by creators</h2>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Built to be trusted</h2>
+            <p className="mt-3 text-muted-foreground">Clear policies, secure payments and a real way to reach us.</p>
           </div>
-          <div className="mt-12 grid gap-5 md:grid-cols-3">
+          <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-3">
             {[
-              { n: 'Maya R.', r: 'Fitness coach', img: IMAGES.p1, q: 'I replaced three tools with Fanvase. My members finally have one home.' },
-              { n: 'Devon K.', r: 'Music producer', img: IMAGES.p2, q: 'Recurring memberships doubled my monthly income in eight weeks.' },
-              { n: 'Arjun S.', r: 'AI educator', img: IMAGES.p3, q: 'The referral program brought in creators who bring in their own fans.' },
+              { icon: Lock, t: 'Secure checkout', d: 'Payments are handled by Dodo Payments. Fanvase never sees or stores your card details.', href: null },
+              { icon: FileText, t: 'Clear policies', d: 'Read exactly how payments, refunds and your data are handled before you commit.', href: '/terms', label: 'Terms & Conditions' },
+              { icon: Users, t: 'Real support', d: 'Questions about your account, a payment or a payout? Send us a message and we will help.', href: '/contact', label: 'Contact us' },
             ].map((t, i) => (
-              <Card key={i} className="border-border bg-background p-6">
-                <div className="flex gap-1 text-primary">{Array.from({ length: 5 }).map((_, j) => <Star key={j} className="h-4 w-4 fill-current" />)}</div>
-                <p className="mt-4 text-sm text-foreground/90">&ldquo;{t.q}&rdquo;</p>
-                <div className="mt-5 flex items-center gap-3"><Avatar src={t.img} name={t.n} /><div><p className="text-sm font-semibold">{t.n}</p><p className="text-xs text-muted-foreground">{t.r}</p></div></div>
+              <Card key={i} className="flex flex-col p-6">
+                <div aria-hidden="true" className="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary"><t.icon className="h-5 w-5" /></div>
+                <h3 className="mt-4 font-semibold">{t.t}</h3>
+                <p className="mt-1 flex-1 text-sm text-muted-foreground">{t.d}</p>
+                {t.href && <a href={t.href} className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">{t.label} <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></a>}
               </Card>
             ))}
           </div>
@@ -186,12 +186,12 @@ export function Landing({ onStart, onExplore, onLogin }) {
       </section>
 
       {/* FINAL CTA */}
-      <section className="container py-20">
-        <div className="relative overflow-hidden rounded-[2.5rem] border border-primary/30 bg-gradient-to-br from-card to-background p-10 text-center md:p-16 glow-lime">
+      <section className="container py-16 md:py-20">
+        <div className="relative overflow-hidden rounded-3xl border border-primary/30 bg-gradient-to-br from-card to-background p-8 text-center sm:p-10 md:p-16 glow-lime">
           <div className="pointer-events-none absolute -top-20 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-primary/25 blur-[120px]" />
           <h2 className="relative text-3xl font-extrabold tracking-tight sm:text-5xl">Your community is waiting.</h2>
           <p className="relative mx-auto mt-4 max-w-lg text-muted-foreground">Start building your paid community today. It only takes a few minutes to launch.</p>
-          <Button size="lg" onClick={onStart} className="relative mt-8 h-12 px-8 text-base font-semibold">Start Creating <ArrowRight className="ml-1 h-4 w-4" /></Button>
+          <Button size="lg" onClick={onStart} className="relative mt-8 h-12 w-full px-8 text-base font-semibold sm:w-auto">Start Creating <ArrowRight className="ml-1 h-4 w-4" /></Button>
         </div>
       </section>
 
@@ -249,21 +249,21 @@ export function AuthView({ mode = 'signup', initialRole = 'creator', refCode, on
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-grid p-4">
+    <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-grid p-4 pb-safe pt-safe">
       <div className="pointer-events-none absolute -top-32 left-1/2 h-96 w-[700px] -translate-x-1/2 rounded-full bg-primary/15 blur-[130px]" />
       <div className="relative w-full max-w-md">
         <div className="mb-8 flex justify-center"><Logo size="lg" onClick={onBack} /></div>
 
         {mode === 'signup' && step === 'role' && (
-          <Card className="border-border bg-card p-6">
-            <h1 className="text-center text-2xl font-bold">How do you want to use Fanvase?</h1>
+          <Card className="p-5 sm:p-6">
+            <h1 className="text-center text-xl font-semibold tracking-tight sm:text-2xl">How do you want to use Fanvase?</h1>
             <p className="mt-1 text-center text-sm text-muted-foreground">You can switch or add a creator profile anytime.</p>
             <div className="mt-6 space-y-3">
               {[
                 { k: 'creator', icon: Rocket, t: 'Creator', d: 'Build a community and earn from your audience.' },
                 { k: 'fan', icon: Users, t: 'Fan', d: 'Discover communities and support your favorite creators.' },
               ].map(o => (
-                <button key={o.k} onClick={() => setRole(o.k)} className={cn('flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition', role === o.k ? 'border-primary bg-primary/10' : 'border-border bg-background hover:border-primary/40')}>
+                <button key={o.k} type="button" aria-pressed={role === o.k} onClick={() => setRole(o.k)} className={cn('flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition', role === o.k ? 'border-primary bg-primary/10' : 'border-border bg-background hover:border-primary/40')}>
                   <div className={cn('grid h-11 w-11 place-items-center rounded-xl', role === o.k ? 'bg-primary text-primary-foreground' : 'bg-secondary text-primary')}><o.icon className="h-5 w-5" /></div>
                   <div className="flex-1"><p className="font-semibold">{o.t}</p><p className="text-sm text-muted-foreground">{o.d}</p></div>
                   <div className={cn('grid h-5 w-5 place-items-center rounded-full border', role === o.k ? 'border-primary bg-primary' : 'border-border')}>{role === o.k && <Check className="h-3 w-3 text-primary-foreground" />}</div>
@@ -276,16 +276,16 @@ export function AuthView({ mode = 'signup', initialRole = 'creator', refCode, on
         )}
 
         {(mode === 'login' || step === 'form') && (
-          <Card className="border-border bg-card p-6">
-            <h1 className="text-center text-2xl font-bold">{mode === 'signup' ? 'Create your account' : 'Welcome back'}</h1>
+          <Card className="p-5 sm:p-6">
+            <h1 className="text-center text-xl font-semibold tracking-tight sm:text-2xl">{mode === 'signup' ? 'Create your account' : 'Welcome back'}</h1>
             {mode === 'signup' && <p className="mt-1 text-center text-sm text-muted-foreground">Signing up as <span className="font-semibold capitalize text-primary">{role}</span> {refCode && <>&middot; referred by @{refCode}</>}</p>}
             <div className="mt-6 space-y-4">
-              {mode === 'signup' && (<div><Label>Display name</Label><Input className="mt-1.5" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" /></div>)}
-              <div><Label>Email</Label><Input className="mt-1.5" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" /></div>
-              {mode === 'signup' && (<div><Label>Referral code <span className="text-muted-foreground">(optional)</span></Label><Input className="mt-1.5" value={code} onChange={e => setCode(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))} placeholder="creator's username" /><p className="mt-1 text-xs text-muted-foreground">Enter a creator or fan&rsquo;s username who referred you.</p></div>)}
+              {mode === 'signup' && (<div><Label htmlFor="auth-name">Display name</Label><Input id="auth-name" autoComplete="name" className="mt-1.5" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" /></div>)}
+              <div><Label htmlFor="auth-email">Email</Label><Input id="auth-email" autoComplete="email" inputMode="email" className="mt-1.5" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" /></div>
+              {mode === 'signup' && (<div><Label htmlFor="auth-ref">Referral code <span className="text-muted-foreground">(optional)</span></Label><Input id="auth-ref" autoCapitalize="none" className="mt-1.5" value={code} onChange={e => setCode(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))} placeholder="creator's username" /><p className="mt-1 text-xs text-muted-foreground">Enter a creator or fan&rsquo;s username who referred you.</p></div>)}
               <div>
-                <div className="flex items-center justify-between"><Label>Password</Label>{mode === 'login' && <button onClick={forgot} className="text-xs text-primary">Forgot?</button>}</div>
-                <Input className="mt-1.5" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter a password" onKeyDown={e => e.key === 'Enter' && submit()} />
+                <div className="flex items-center justify-between"><Label htmlFor="auth-password">Password</Label>{mode === 'login' && <button type="button" onClick={forgot} className="rounded px-1 py-1 text-xs text-primary hover:underline">Forgot?</button>}</div>
+                <Input id="auth-password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} className="mt-1.5" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter a password" onKeyDown={e => e.key === 'Enter' && submit()} />
               </div>
               <Button className="w-full font-semibold" onClick={submit} disabled={loading}>{loading ? <Spinner className="text-primary-foreground" /> : (mode === 'signup' ? 'Create account' : 'Log in')}</Button>
               <div className="relative py-1"><div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div><div className="relative flex justify-center"><span className="bg-card px-3 text-xs text-muted-foreground">or</span></div></div>
@@ -304,9 +304,9 @@ export function AuthView({ mode = 'signup', initialRole = 'creator', refCode, on
 /* ============ SHARED: community card + discover grid ============ */
 export function CommunityCard({ c, onOpen }) {
   return (
-    <button onClick={() => onOpen(c)} className="group overflow-hidden rounded-2xl border border-border bg-card text-left transition hover:border-primary/50 hover:-translate-y-0.5">
-      <div className="relative h-28 w-full overflow-hidden bg-secondary">
-        {c.cover_url ? <img src={c.cover_url} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full bg-gradient-to-br from-primary/20 to-purple-600/20" />}
+    <button type="button" onClick={() => onOpen(c)} className="group overflow-hidden rounded-2xl border border-border bg-card text-left transition-colors hover:border-primary/40">
+      <div className="relative aspect-[16/6] w-full overflow-hidden bg-secondary">
+        {c.cover_url ? <img src={c.cover_url} alt="" loading="lazy" className="h-full w-full object-cover" /> : <div className="h-full w-full bg-gradient-to-br from-primary/20 to-purple-600/20" />}
         <span className="absolute right-2 top-2 rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur">{c.category}</span>
       </div>
       <div className="p-4">
@@ -328,7 +328,7 @@ export function PublicCommunity({ data, currentUser, onJoin, onBack, onLogin }) 
   const { community: c, creator, posts, total_posts, is_member } = data
   const typeIcon = { text: FileText, image: ImageIcon, link: LinkIcon, file: FileText }
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-[100dvh] bg-background">
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between">
           <Logo size="sm" onClick={onBack} />
@@ -341,13 +341,13 @@ export function PublicCommunity({ data, currentUser, onJoin, onBack, onLogin }) 
         <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
       </div>
 
-      <div className="container -mt-16 relative grid gap-8 pb-20 lg:grid-cols-3">
+      <div className="container relative -mt-14 grid grid-cols-1 gap-8 pb-32 sm:-mt-16 lg:grid-cols-3 lg:pb-20">
         <div className="lg:col-span-2">
-          <div className="flex items-end gap-4">
-            <Avatar src={c.image_url} name={c.name} size={96} className="ring-4 ring-background" />
-            <div className="pb-2">
+          <div className="flex items-end gap-3 sm:gap-4">
+            <Avatar src={c.image_url} name={c.name} size={88} className="ring-4 ring-background" />
+            <div className="min-w-0 pb-1 sm:pb-2">
               <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs text-muted-foreground">{c.category}</span>
-              <h1 className="mt-1 text-3xl font-bold tracking-tight">{c.name}</h1>
+              <h1 className="mt-1 break-words text-2xl font-bold tracking-tight sm:text-3xl">{c.name}</h1>
               <p className="text-sm text-muted-foreground">by @{creator?.username} &middot; {c.member_count || 0} members</p>
             </div>
           </div>
@@ -378,7 +378,7 @@ export function PublicCommunity({ data, currentUser, onJoin, onBack, onLogin }) 
 
         {/* JOIN CARD */}
         <div className="lg:sticky lg:top-24 h-fit">
-          <Card className="border-border bg-card p-6 glow-lime">
+          <Card id="join-card" className="p-5 sm:p-6">
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-extrabold">{money(c.price, c.currency)}</span>
               <span className="text-muted-foreground">{c.pricing_type === 'recurring' ? `/ ${c.billing_period === 'yearly' ? 'year' : 'month'}` : 'one-time'}</span>
@@ -394,9 +394,22 @@ export function PublicCommunity({ data, currentUser, onJoin, onBack, onLogin }) 
             ) : (
               <Button className="mt-6 w-full font-semibold" onClick={() => onJoin(c)}>Join Community <ArrowRight className="ml-1 h-4 w-4" /></Button>
             )}
-            <p className="mt-3 text-center text-xs text-muted-foreground">Secure checkout &middot; fanvase.in/c/{c.slug}</p>
+            <p className="mt-3 text-center text-xs text-muted-foreground">Secure checkout &middot; {typeof window !== 'undefined' ? window.location.host : 'fanvase.online'}/c/{c.slug}</p>
           </Card>
         </div>
+
+        {/* Mobile join bar: the join card sits below the content, so keep the action in reach. */}
+        {!is_member && (
+          <div className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-xl lg:hidden">
+            <div className="container flex items-center gap-3 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">{c.name}</p>
+                <p className="text-xs text-muted-foreground">{money(c.price, c.currency)}{c.pricing_type === 'recurring' ? ` / ${c.billing_period === 'yearly' ? 'year' : 'month'}` : ' one-time'}</p>
+              </div>
+              <Button className="shrink-0 font-semibold" onClick={() => onJoin(c)}>Join <ArrowRight className="h-4 w-4" /></Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,135 +1,162 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Card } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { toast } from 'sonner'
 import { API, money, timeAgo, cn } from '@/lib/fanvase'
 import { RATE_NOTE } from '@/lib/currency'
-import { Logo, Avatar, Spinner, StatusBadge, KPICard, EmptyState, FullLoader, Section } from '@/components/fanvase/atoms'
+import {
+  Avatar, Spinner, StatusBadge, KPICard, EmptyState, Section, PageHeader, Segmented, ListRow,
+  InlineError, DashboardSkeleton, FullLoader, selectClass,
+} from '@/components/fanvase/atoms'
+import { DashboardShell } from '@/components/fanvase/shell'
 import { ReferralPanel } from '@/components/fanvase/shared'
 import {
-  LayoutDashboard, Radio, FileText, Users, CreditCard, DollarSign, Gift, BarChart3, Settings,
-  Plus, Bell, Search, LogOut, Menu, X, TrendingUp, Repeat, Zap, Copy, ExternalLink, Check,
-  ImageIcon, LinkIcon, Trash2, Rocket, ArrowUpRight, UserCircle, Wallet, Banknote,
+  LayoutDashboard, FileText, Users, CreditCard, Wallet, Gift, BarChart3, Settings,
+  Plus, Bell, TrendingUp, Repeat, Copy, ExternalLink, Check, ImageIcon, LinkIcon, Trash2,
+  Rocket, ArrowUpRight, UserCircle, Banknote, LogOut, Search, DollarSign, Lock, Zap,
 } from 'lucide-react'
 
-const NAV = [
-  { k: 'overview', t: 'Overview', icon: LayoutDashboard },
-  { k: 'content', t: 'Content', icon: FileText },
-  { k: 'members', t: 'Members', icon: Users },
-  { k: 'plans', t: 'Manage Plans', icon: CreditCard },
-  { k: 'earnings', t: 'Payout', icon: DollarSign },
-  { k: 'referrals', t: 'Referrals', icon: Gift },
-  { k: 'analytics', t: 'Analytics', icon: BarChart3 },
-  { k: 'settings', t: 'Settings', icon: Settings },
+/* ---------- navigation ---------- */
+const NAV_GROUPS = [
+  { items: [
+    { k: 'overview', t: 'Overview', icon: LayoutDashboard },
+    { k: 'content', t: 'Content', icon: FileText },
+    { k: 'members', t: 'Members', icon: Users },
+  ] },
+  { label: 'Business', items: [
+    { k: 'plans', t: 'Manage Plans', icon: CreditCard },
+    { k: 'earnings', t: 'Payout', icon: Wallet },
+    { k: 'referrals', t: 'Referrals', icon: Gift },
+    { k: 'analytics', t: 'Analytics', icon: BarChart3 },
+  ] },
+  { label: 'Account', items: [
+    { k: 'settings', t: 'Settings', icon: Settings },
+  ] },
 ]
 
+/* ---------- chart theme (matches design tokens) ---------- */
+const CHART = {
+  grid: 'hsl(200 8% 14%)',
+  tick: 'hsl(200 7% 64%)',
+  lime: 'hsl(83 77% 55%)',
+  purple: 'hsl(268 70% 66%)',
+  tooltip: { background: 'hsl(200 12% 7.5%)', border: '1px solid hsl(200 8% 18%)', borderRadius: 12, color: '#fff', fontSize: 12 },
+}
+
+function RevenueChart({ data, color = CHART.lime, id, height = 256 }) {
+  const hasData = (data || []).some(d => Number(d.value) > 0)
+  if (!hasData) {
+    return (
+      <div style={{ height }} className="grid place-items-center rounded-xl border border-dashed border-border text-center">
+        <div><TrendingUp className="mx-auto h-6 w-6 text-muted-foreground" aria-hidden="true" /><p className="mt-2 text-sm font-medium">No revenue in this period</p><p className="text-xs text-muted-foreground">Earnings from new members will show up here.</p></div>
+      </div>
+    )
+  }
+  return (
+    <div style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
+          <defs><linearGradient id={id} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.35} /><stop offset="100%" stopColor={color} stopOpacity={0} /></linearGradient></defs>
+          <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} vertical={false} />
+          <XAxis dataKey="date" tick={{ fill: CHART.tick, fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={28} />
+          <YAxis tick={{ fill: CHART.tick, fontSize: 11 }} axisLine={false} tickLine={false} width={48} tickFormatter={v => `$${v}`} />
+          <Tooltip contentStyle={CHART.tooltip} formatter={v => [money(v), 'Revenue']} />
+          <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={`url(#${id})`} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+/* ---------- dashboard shell ---------- */
 export function CreatorDashboard({ profile, communities: initComms, balance, onNavPublic, onLogout, onSwitchFan, onReload }) {
   const [view, setView] = useState('overview')
-  const [mobileNav, setMobileNav] = useState(false)
-  const [comms, setComms] = useState(initComms || [])
+  const [comms] = useState(initComms || [])
   const community = comms[0]
   const pending = !community || community.status !== 'active' || profile?.platform_status !== 'active'
 
-  return (
-    <div className="min-h-screen bg-background lg:flex">
-      {/* SIDEBAR (desktop) */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
-        <div className="flex h-16 items-center px-5"><Logo size="sm" onClick={onNavPublic} /></div>
-        <nav className="flex-1 space-y-1 px-3">
-          {NAV.map(n => (
-            <button key={n.k} onClick={() => setView(n.k)} className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition', view === n.k ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground')}>
-              <n.icon className="h-4.5 w-4.5" /> {n.t}
-            </button>
-          ))}
-        </nav>
-        <div className="p-3">
-          <button onClick={onSwitchFan} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent"><UserCircle className="h-4.5 w-4.5" /> Switch to Fan</button>
-          <button onClick={onLogout} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent"><LogOut className="h-4.5 w-4.5" /> Log out</button>
-        </div>
-      </aside>
-
-      <div className="flex-1 min-w-0">
-        {/* TOPBAR */}
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-xl md:px-6">
-          <button className="lg:hidden" onClick={() => setMobileNav(true)}><Menu className="h-5 w-5" /></button>
-          <div className="hidden flex-1 items-center gap-2 md:flex">
-            <div className="relative w-full max-w-xs"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input className="h-9 pl-9" placeholder="Search..." /></div>
-          </div>
-          <div className="flex flex-1 items-center justify-end gap-3 lg:flex-none">
-            <Button size="sm" onClick={() => setView('content')} className="font-semibold"><Plus className="mr-1 h-4 w-4" /> Create</Button>
-            <button className="relative grid h-9 w-9 place-items-center rounded-xl border border-border"><Bell className="h-4 w-4" /></button>
-            <Avatar src={profile?.avatar_url} name={profile?.display_name} size={36} />
-          </div>
-        </header>
-
-        {/* MOBILE NAV DRAWER */}
-        {mobileNav && (
-          <div className="fixed inset-0 z-50 lg:hidden">
-            <div className="absolute inset-0 bg-black/60" onClick={() => setMobileNav(false)} />
-            <div className="absolute left-0 top-0 h-full w-72 bg-sidebar p-4">
-              <div className="mb-4 flex items-center justify-between"><Logo size="sm" /><button onClick={() => setMobileNav(false)}><X className="h-5 w-5" /></button></div>
-              <nav className="space-y-1">{NAV.map(n => (<button key={n.k} onClick={() => { setView(n.k); setMobileNav(false) }} className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium', view === n.k ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground')}><n.icon className="h-4.5 w-4.5" /> {n.t}</button>))}</nav>
-              <div className="mt-4 border-t border-sidebar-border pt-4"><button onClick={onSwitchFan} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground"><UserCircle className="h-4.5 w-4.5" /> Switch to Fan</button><button onClick={onLogout} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground"><LogOut className="h-4.5 w-4.5" /> Log out</button></div>
-            </div>
-          </div>
-        )}
-
-        <main className="container max-w-6xl py-6">
-          {pending && view !== 'plans' && (
-            <button onClick={() => setView('plans')} className="mb-5 flex w-full items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 text-left">
-              <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/15 text-amber-400"><Rocket className="h-4 w-4" /></div>
-              <div className="flex-1"><p className="text-sm font-semibold text-amber-300">Activate your channel</p><p className="text-xs text-muted-foreground">Subscribe to a platform plan to go live and accept members.</p></div>
-              <ArrowUpRight className="h-4 w-4 text-amber-400" />
-            </button>
-          )}
-          {view === 'overview' && <Overview profile={profile} community={community} onNavPublic={onNavPublic} />}
-          {view === 'content' && <Content comms={comms} />}
-          {view === 'members' && <Members />}
-          {view === 'plans' && <Plans profile={profile} onReload={onReload} />}
-          {view === 'earnings' && <Earnings profile={profile} />}
-          {view === 'referrals' && <ReferralPanel />}
-          {view === 'analytics' && <Analytics />}
-          {view === 'settings' && <SettingsView profile={profile} community={community} onNavPublic={onNavPublic} />}
-        </main>
+  const banner = pending && view !== 'plans' ? (
+    <button type="button" onClick={() => setView('plans')} className="mb-5 flex w-full items-center gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4 text-left transition-colors hover:bg-amber-500/10">
+      <div aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-500/15 text-amber-300"><Rocket className="h-4 w-4" /></div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-amber-200">Activate your channel</p>
+        <p className="text-xs text-muted-foreground">Subscribe to a platform plan to go live and accept members.</p>
       </div>
-    </div>
+      <ArrowUpRight aria-hidden="true" className="h-4 w-4 shrink-0 text-amber-300" />
+    </button>
+  ) : null
+
+  return (
+    <DashboardShell
+      groups={NAV_GROUPS}
+      view={view}
+      setView={setView}
+      user={profile}
+      onLogoClick={() => setView('overview')}
+      footer={[
+        { t: 'Switch to Fan', icon: UserCircle, onClick: onSwitchFan },
+        { t: 'Log out', icon: LogOut, onClick: onLogout },
+      ]}
+      topRight={
+        <>
+          <Button size="sm" onClick={() => setView('content')} className="font-semibold"><Plus className="h-4 w-4" /> Create</Button>
+          <button type="button" onClick={() => setView('overview')} aria-label="Notifications and activity" className="grid h-10 w-10 place-items-center rounded-xl border border-border text-muted-foreground transition-colors hover:text-foreground"><Bell className="h-4 w-4" /></button>
+          <Avatar src={profile?.avatar_url} name={profile?.display_name} size={36} className="hidden sm:grid" />
+        </>
+      }
+      banner={banner}
+    >
+      {view === 'overview' && <Overview profile={profile} community={community} />}
+      {view === 'content' && <Content comms={comms} />}
+      {view === 'members' && <Members />}
+      {view === 'plans' && <Plans profile={profile} />}
+      {view === 'earnings' && <Earnings profile={profile} />}
+      {view === 'referrals' && <ReferralPanel />}
+      {view === 'analytics' && <Analytics />}
+      {view === 'settings' && <SettingsView profile={profile} community={community} onNavPublic={onNavPublic} />}
+    </DashboardShell>
   )
 }
 
 function ShareLink({ community }) {
   if (!community) return null
+  const host = typeof window !== 'undefined' ? window.location.host : 'fanvase.online'
   const link = typeof window !== 'undefined' ? `${window.location.origin}/c/${community.slug}` : ''
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-2">
-      <span className="truncate px-2 text-xs text-muted-foreground">fanvase.in/c/{community.slug}</span>
-      <Button size="sm" variant="secondary" onClick={() => { navigator.clipboard.writeText(link); toast.success('Link copied') }}><Copy className="h-3.5 w-3.5" /></Button>
+    <div className="flex min-w-0 max-w-full items-center gap-1 rounded-xl border border-border bg-card p-1.5 pl-3">
+      <span className="truncate text-xs text-muted-foreground">{host}/c/{community.slug}</span>
+      <Button size="sm" variant="secondary" aria-label="Copy community link" onClick={() => { navigator.clipboard.writeText(link); toast.success('Link copied') }}><Copy className="h-3.5 w-3.5" /> Copy</Button>
     </div>
   )
 }
 
 /* ---------- OVERVIEW ---------- */
-function Overview({ profile, community, onNavPublic }) {
+function Overview({ profile, community }) {
   const [range, setRange] = useState(30)
   const [data, setData] = useState(null)
-  useEffect(() => { setData(null); API.get(`/creator/overview?range=${range}`).then(setData).catch(() => {}) }, [range])
-  if (!data) return <FullLoader label="Loading dashboard" />
+  const [failed, setFailed] = useState(false)
+  const load = () => { setData(null); setFailed(false); API.get(`/creator/overview?range=${range}`).then(setData).catch(() => setFailed(true)) }
+  useEffect(load, [range])
+  if (failed) return <InlineError title="Could not load your dashboard" onRetry={load} />
+  if (!data) return <DashboardSkeleton />
   const k = data.kpis
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-2xl font-bold tracking-tight">Welcome back, {profile?.display_name?.split(' ')[0] || 'creator'} 👋</h1><p className="text-sm text-muted-foreground">Here&rsquo;s how {community?.name || 'your community'} is doing.</p></div>
-        <ShareLink community={community} />
-      </div>
+      <PageHeader
+        title={`Welcome back, ${profile?.display_name?.split(' ')[0] || 'creator'}`}
+        desc={`Here's how ${community?.name || 'your community'} is doing.`}
+        actions={<ShareLink community={community} />}
+      />
 
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         <KPICard label="Total Members" value={k.totalMembers} icon={Users} />
         <KPICard label="Total Revenue" value={money(k.totalRevenue)} icon={DollarSign} />
         <KPICard label="MRR" value={money(k.mrr)} icon={Repeat} accent="purple" />
@@ -138,49 +165,32 @@ function Overview({ profile, community, onNavPublic }) {
         <KPICard label="Referral Earnings" value={money(k.referralEarnings)} icon={Gift} accent="purple" />
       </div>
 
-      <Card className="border-border bg-card p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-semibold">Revenue over time</h2>
-          <div className="flex gap-1 rounded-xl border border-border p-1">
-            {[[7, '7d'], [30, '30d'], [90, '3m'], [180, '6m'], [365, '1y']].map(([v, l]) => (
-              <button key={v} onClick={() => setRange(v)} className={cn('rounded-lg px-2.5 py-1 text-xs', range === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>{l}</button>
-            ))}
-          </div>
+      <div className="fv-card p-4 sm:p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-base font-semibold">Revenue over time</h2>
+          <Segmented label="Time range" value={range} onChange={setRange} options={[[7, '7d'], [30, '30d'], [90, '3m'], [180, '6m'], [365, '1y']]} />
         </div>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data.series}>
-              <defs><linearGradient id="rev" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="hsl(83 74% 55%)" stopOpacity={0.5} /><stop offset="100%" stopColor="hsl(83 74% 55%)" stopOpacity={0} /></linearGradient></defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 15%)" vertical={false} />
-              <XAxis dataKey="date" tick={{ fill: 'hsl(0 0% 55%)', fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={24} />
-              <YAxis tick={{ fill: 'hsl(0 0% 55%)', fontSize: 11 }} axisLine={false} tickLine={false} width={36} />
-              <Tooltip contentStyle={{ background: 'hsl(0 0% 8%)', border: '1px solid hsl(0 0% 15%)', borderRadius: 12, color: '#fff' }} formatter={v => [money(v), 'Revenue']} />
-              <Area type="monotone" dataKey="value" stroke="hsl(83 74% 55%)" strokeWidth={2} fill="url(#rev)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
+        <RevenueChart data={data.series} id="rev-overview" />
+      </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Section title="Recent activity">
           {data.activity.length === 0 ? <EmptyState icon={Bell} title="No activity yet" desc="Actions will appear here." /> : (
             <div className="space-y-2">{data.activity.map(a => (
-              <div key={a.id} className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
-                <div className="mt-0.5 grid h-8 w-8 place-items-center rounded-lg bg-primary/15 text-primary"><Bell className="h-4 w-4" /></div>
-                <div className="flex-1"><p className="text-sm font-medium">{a.title}</p><p className="text-xs text-muted-foreground">{a.body}</p></div>
-                <span className="text-xs text-muted-foreground">{timeAgo(a.created_at)}</span>
-              </div>
+              <ListRow key={a.id}
+                leading={<div aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Bell className="h-4 w-4" /></div>}
+                title={a.title} sub={a.body}
+                trailing={<span className="shrink-0 text-xs text-muted-foreground">{timeAgo(a.created_at)}</span>} />
             ))}</div>
           )}
         </Section>
         <Section title="Recent members">
           {data.recentMembers.length === 0 ? <EmptyState icon={Users} title="No members yet" desc="Share your community link to get your first member." /> : (
             <div className="space-y-2">{data.recentMembers.map(m => (
-              <div key={m.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-                <Avatar src={m.profile?.avatar_url} name={m.profile?.display_name} size={38} />
-                <div className="flex-1"><p className="text-sm font-medium">{m.profile?.display_name || 'Member'}</p><p className="text-xs text-muted-foreground">{m.plan} &middot; {timeAgo(m.joined_at)}</p></div>
-                <StatusBadge status={m.status} />
-              </div>
+              <ListRow key={m.id}
+                leading={<Avatar src={m.profile?.avatar_url} name={m.profile?.display_name} size={36} />}
+                title={m.profile?.display_name || 'Member'} sub={<>{m.plan} &middot; {timeAgo(m.joined_at)}</>}
+                trailing={<StatusBadge status={m.status} />} />
             ))}</div>
           )}
         </Section>
@@ -190,39 +200,61 @@ function Overview({ profile, community, onNavPublic }) {
 }
 
 /* ---------- CONTENT ---------- */
+const TYPE_ICON = { text: FileText, image: ImageIcon, file: FileText, link: LinkIcon }
+
 function Content({ comms }) {
   const [posts, setPosts] = useState(null)
+  const [failed, setFailed] = useState(false)
   const [open, setOpen] = useState(false)
-  const load = () => API.get('/creator/posts').then(r => setPosts(r.posts)).catch(() => setPosts([]))
-  useEffect(() => { load() }, [])
+  const [toDelete, setToDelete] = useState(null)
+  const load = () => { setFailed(false); API.get('/creator/posts').then(r => setPosts(r.posts)).catch(() => setFailed(true)) }
+  useEffect(load, [])
   async function del(id) { try { await API.del(`/posts/${id}`); toast.success('Deleted'); load() } catch (e) { toast.error(e.message) } }
+  const create = <Button onClick={() => setOpen(true)} className="font-semibold"><Plus className="h-4 w-4" /> Create Post</Button>
   return (
     <div className="space-y-6">
-      <Section title="Content" desc="Broadcast posts to your members." right={<Button onClick={() => setOpen(true)} className="font-semibold"><Plus className="mr-1 h-4 w-4" /> Create Post</Button>}>
-        {posts === null ? <FullLoader /> : posts.length === 0 ? (
-          <EmptyState icon={FileText} title="No posts yet" desc="Publish your first broadcast to engage members." action={<Button onClick={() => setOpen(true)}><Plus className="mr-1 h-4 w-4" /> Create Post</Button>} />
-        ) : (
-          <div className="space-y-3">{posts.map(p => (
-            <Card key={p.id} className="border-border bg-card p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="rounded-md bg-secondary px-2 py-0.5 capitalize">{p.type}</span>
-                    <StatusBadge status={p.status === 'published' ? 'active' : p.status} /><span>&middot; {p.visibility}</span><span>&middot; {p.community?.name}</span>
+      <PageHeader title="Content" desc="Broadcast posts to your members." actions={create} />
+      {failed ? <InlineError title="Could not load your posts" onRetry={load} /> : posts === null ? <FullLoader label="Loading posts" /> : posts.length === 0 ? (
+        <EmptyState icon={FileText} title="No posts yet" desc="Publish your first broadcast to engage members." action={create} />
+      ) : (
+        <div className="space-y-3">{posts.map(p => {
+          const Ic = TYPE_ICON[p.type] || FileText
+          return (
+            <article key={p.id} className="fv-card p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <div aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-secondary text-primary"><Ic className="h-4 w-4" /></div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <StatusBadge status={p.status} />
+                    <span className="inline-flex items-center gap-1 capitalize">{p.visibility === 'members' && <Lock className="h-3 w-3" aria-hidden="true" />}{p.visibility}</span>
+                    {p.community?.name && <span>&middot; {p.community.name}</span>}
+                    <span>&middot; {timeAgo(p.created_at)}</span>
                   </div>
-                  {p.title && <h3 className="mt-2 font-semibold">{p.title}</h3>}
-                  {p.content && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{p.content}</p>}
-                  {p.media_url && <img src={p.media_url} className="mt-2 h-32 rounded-xl object-cover" alt="" />}
-                  {p.link_url && <a href={p.link_url} target="_blank" className="mt-2 inline-flex items-center gap-1 text-sm text-primary"><LinkIcon className="h-3.5 w-3.5" /> {p.link_url}</a>}
-                  <p className="mt-2 text-xs text-muted-foreground">{timeAgo(p.created_at)}</p>
+                  {p.title && <h3 className="mt-2 text-[15px] font-semibold leading-snug">{p.title}</h3>}
+                  {p.content && <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-sm text-muted-foreground">{p.content}</p>}
+                  {p.media_url && p.type === 'image' && <img src={p.media_url} alt="" loading="lazy" className="mt-3 aspect-video w-full max-w-sm rounded-xl border border-border object-cover" />}
+                  {p.media_url && p.type === 'file' && <a href={p.media_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 text-sm text-primary hover:underline"><FileText className="h-4 w-4" /> View attachment</a>}
+                  {p.link_url && <a href={p.link_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex max-w-full items-center gap-1.5 text-sm text-primary hover:underline"><LinkIcon className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{p.link_url}</span></a>}
                 </div>
-                <button onClick={() => del(p.id)} className="rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-red-400"><Trash2 className="h-4 w-4" /></button>
+                <button type="button" onClick={() => setToDelete(p)} aria-label="Delete post" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-red-400"><Trash2 className="h-4 w-4" /></button>
               </div>
-            </Card>
-          ))}</div>
-        )}
-      </Section>
+            </article>
+          )
+        })}</div>
+      )}
       <CreatePostDialog open={open} setOpen={setOpen} comms={comms} onCreated={load} />
+      <AlertDialog open={!!toDelete} onOpenChange={o => { if (!o) setToDelete(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this post?</AlertDialogTitle>
+            <AlertDialogDescription>{toDelete?.title ? `"${toDelete.title}" will be permanently removed.` : 'This post will be permanently removed.'} This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { const id = toDelete?.id; setToDelete(null); if (id) del(id) }}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -252,26 +284,48 @@ function CreatePostDialog({ open, setOpen, comms, onCreated }) {
       setOpen(false); setTitle(''); setContent(''); setMedia(''); setLink(''); onCreated()
     } catch (e) { toast.error(e.message) } finally { setBusy(false) }
   }
-  const types = [{ k: 'text', icon: FileText }, { k: 'image', icon: ImageIcon }, { k: 'file', icon: FileText }, { k: 'link', icon: LinkIcon }]
+  const types = [{ k: 'text', t: 'Text', icon: FileText }, { k: 'image', t: 'Image', icon: ImageIcon }, { k: 'file', t: 'File', icon: FileText }, { k: 'link', t: 'Link', icon: LinkIcon }]
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-lg">
-        <DialogHeader><DialogTitle>Create Post</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Create post</DialogTitle><DialogDescription>Share an update with your community.</DialogDescription></DialogHeader>
         <div className="space-y-4">
-          <div className="flex gap-2">{types.map(t => <button key={t.k} onClick={() => setType(t.k)} className={cn('flex flex-1 flex-col items-center gap-1 rounded-xl border py-2 text-xs capitalize', type === t.k ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground')}><t.icon className="h-4 w-4" /> {t.k}</button>)}</div>
-          {comms.length > 1 && <select value={community} onChange={e => setCommunity(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">{comms.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
-          <Input placeholder="Title" value={title} onChange={e => setTitle(e.target.value)} />
-          <Textarea rows={4} placeholder="Write something..." value={content} onChange={e => setContent(e.target.value)} />
+          <div role="group" aria-label="Post type" className="grid grid-cols-4 gap-2">
+            {types.map(t => (
+              <button key={t.k} type="button" aria-pressed={type === t.k} onClick={() => { setType(t.k); setMedia('') }} className={cn('flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl border text-xs font-medium transition-colors', type === t.k ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground')}>
+                <t.icon className="h-4 w-4" aria-hidden="true" /> {t.t}
+              </button>
+            ))}
+          </div>
+          {comms.length > 1 && (
+            <div><Label htmlFor="post-community">Community</Label><select id="post-community" value={community} onChange={e => setCommunity(e.target.value)} className={cn(selectClass, 'mt-1.5')}>{comms.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+          )}
+          <div><Label htmlFor="post-title">Title</Label><Input id="post-title" className="mt-1.5" placeholder="Give your post a title" value={title} onChange={e => setTitle(e.target.value)} /></div>
+          <div><Label htmlFor="post-body">Message</Label><Textarea id="post-body" className="mt-1.5" rows={4} placeholder="Write something..." value={content} onChange={e => setContent(e.target.value)} /></div>
           {(type === 'image' || type === 'file') && (
-            <div><Label className="text-xs">{type === 'file' ? 'Attachment (PDF, max 2MB)' : 'Image'}</Label>
-              <label className="mt-1.5 flex h-10 cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 text-sm text-muted-foreground">{uploading ? <Spinner className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}{media ? 'Replace file' : 'Upload'}<input type="file" className="hidden" accept={type === 'file' ? 'application/pdf' : 'image/*'} onChange={e => upload(e, type === 'file' ? 'files' : 'media')} /></label>
-              {media && <p className="mt-1 truncate text-xs text-primary">{media}</p>}
+            <div>
+              <Label>{type === 'file' ? 'Attachment (PDF, max 2MB)' : 'Image (max 10MB)'}</Label>
+              <label className="mt-1.5 flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-dashed border-input bg-background/50 px-3 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground">
+                {uploading ? <Spinner className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" aria-hidden="true" />}{media ? 'Replace file' : 'Choose a file'}
+                <input type="file" className="sr-only" accept={type === 'file' ? 'application/pdf' : 'image/*'} onChange={e => upload(e, type === 'file' ? 'files' : 'media')} />
+              </label>
+              {media && type === 'image' && <img src={media} alt="Upload preview" className="mt-2 aspect-video w-full rounded-xl border border-border object-cover" />}
+              {media && type === 'file' && <p className="mt-1.5 truncate text-xs text-primary">{media}</p>}
             </div>
           )}
-          {type === 'link' && <Input placeholder="https://..." value={link} onChange={e => setLink(e.target.value)} />}
-          <div><Label className="text-xs">Visibility</Label><div className="mt-1.5 flex gap-2">{['public', 'members'].map(v => <button key={v} onClick={() => setVisibility(v)} className={cn('rounded-xl border px-3 py-1.5 text-sm capitalize', visibility === v ? 'border-primary bg-primary/10 text-primary' : 'border-border')}>{v}</button>)}</div></div>
+          {type === 'link' && <div><Label htmlFor="post-link">Link</Label><Input id="post-link" className="mt-1.5" placeholder="https://..." value={link} onChange={e => setLink(e.target.value)} /></div>}
+          <div>
+            <Label>Who can see this</Label>
+            <div role="group" aria-label="Visibility" className="mt-1.5 grid grid-cols-2 gap-2">
+              {[['public', 'Public', 'Anyone'], ['members', 'Members', 'Paid members only']].map(([v, l, d]) => (
+                <button key={v} type="button" aria-pressed={visibility === v} onClick={() => setVisibility(v)} className={cn('rounded-xl border p-2.5 text-left transition-colors', visibility === v ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/40')}>
+                  <p className={cn('text-sm font-medium', visibility === v && 'text-primary')}>{l}</p><p className="text-xs text-muted-foreground">{d}</p>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" onClick={() => submit('draft')} disabled={busy}>Save draft</Button>
           <Button onClick={() => submit('published')} disabled={busy} className="font-semibold">{busy ? <Spinner className="text-primary-foreground" /> : 'Publish'}</Button>
         </DialogFooter>
@@ -283,83 +337,179 @@ function CreatePostDialog({ open, setOpen, comms, onCreated }) {
 /* ---------- MEMBERS ---------- */
 function Members() {
   const [members, setMembers] = useState(null)
-  useEffect(() => { API.get('/creator/members').then(r => setMembers(r.members)).catch(() => setMembers([])) }, [])
-  if (members === null) return <FullLoader />
+  const [failed, setFailed] = useState(false)
+  const [q, setQ] = useState('')
+  const [status, setStatus] = useState('all')
+  const load = () => { setFailed(false); API.get('/creator/members').then(r => setMembers(r.members)).catch(() => setFailed(true)) }
+  useEffect(load, [])
+  const list = useMemo(() => {
+    const ql = q.trim().toLowerCase()
+    return (members || []).filter(m => (status === 'all' || m.status === status) && (!ql
+      || m.profile?.display_name?.toLowerCase().includes(ql)
+      || m.profile?.email?.toLowerCase().includes(ql)
+      || m.profile?.username?.toLowerCase().includes(ql)))
+  }, [members, q, status])
+
+  if (failed) return <InlineError title="Could not load members" onRetry={load} />
+  if (members === null) return <FullLoader label="Loading members" />
   return (
-    <Section title="Members" desc="Everyone across your communities.">
+    <div className="space-y-6">
+      <PageHeader title="Members" desc={`${members.length} ${members.length === 1 ? 'member' : 'members'} across your communities.`} />
       {members.length === 0 ? <EmptyState icon={Users} title="No members yet" desc="Members appear here once they join." /> : (
         <>
-          <div className="hidden overflow-hidden rounded-2xl border border-border md:block">
-            <Table>
-              <TableHeader><TableRow className="border-border hover:bg-transparent"><TableHead>Member</TableHead><TableHead>Community</TableHead><TableHead>Plan</TableHead><TableHead>Joined</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-              <TableBody>{members.map(m => (
-                <TableRow key={m.id} className="border-border">
-                  <TableCell><div className="flex items-center gap-2"><Avatar src={m.profile?.avatar_url} name={m.profile?.display_name} size={32} /><div><p className="text-sm font-medium">{m.profile?.display_name}</p><p className="text-xs text-muted-foreground">{m.profile?.email}</p></div></div></TableCell>
-                  <TableCell className="text-sm">{m.community?.name}</TableCell>
-                  <TableCell className="text-sm capitalize">{m.plan}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{timeAgo(m.joined_at)}</TableCell>
-                  <TableCell><StatusBadge status={m.status} /></TableCell>
-                </TableRow>
-              ))}</TableBody>
-            </Table>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative sm:max-w-xs sm:flex-1">
+              <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input aria-label="Search members" className="pl-9" placeholder="Search name or email" value={q} onChange={e => setQ(e.target.value)} />
+            </div>
+            <Segmented label="Filter by status" value={status} onChange={setStatus} options={[['all', 'All'], ['active', 'Active'], ['expired', 'Expired'], ['cancelled', 'Cancelled']]} />
           </div>
-          <div className="space-y-2 md:hidden">{members.map(m => (
-            <Card key={m.id} className="border-border bg-card p-3"><div className="flex items-center gap-3"><Avatar src={m.profile?.avatar_url} name={m.profile?.display_name} size={40} /><div className="flex-1"><p className="text-sm font-medium">{m.profile?.display_name}</p><p className="text-xs text-muted-foreground">{m.community?.name} &middot; {m.plan}</p></div><StatusBadge status={m.status} /></div></Card>
-          ))}</div>
+          {list.length === 0 ? <EmptyState icon={Search} title="No matching members" desc="Try a different search or filter." /> : (
+            <>
+              <div className="fv-card hidden overflow-hidden md:block">
+                <Table>
+                  <TableHeader><TableRow className="border-border hover:bg-transparent"><TableHead>Member</TableHead><TableHead>Community</TableHead><TableHead>Plan</TableHead><TableHead>Joined</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                  <TableBody>{list.map(m => (
+                    <TableRow key={m.id} className="border-border">
+                      <TableCell><div className="flex items-center gap-3"><Avatar src={m.profile?.avatar_url} name={m.profile?.display_name} size={34} /><div className="min-w-0"><p className="truncate text-sm font-medium">{m.profile?.display_name}</p><p className="truncate text-xs text-muted-foreground">{m.profile?.email}</p></div></div></TableCell>
+                      <TableCell className="text-sm">{m.community?.name}</TableCell>
+                      <TableCell className="text-sm capitalize">{m.plan}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground" title={new Date(m.joined_at).toLocaleString()}>{timeAgo(m.joined_at)}</TableCell>
+                      <TableCell><StatusBadge status={m.status} /></TableCell>
+                    </TableRow>
+                  ))}</TableBody>
+                </Table>
+              </div>
+              <div className="space-y-2 md:hidden">{list.map(m => (
+                <ListRow key={m.id}
+                  leading={<Avatar src={m.profile?.avatar_url} name={m.profile?.display_name} size={40} />}
+                  title={m.profile?.display_name}
+                  sub={<>{m.community?.name} &middot; <span className="capitalize">{m.plan}</span> &middot; {timeAgo(m.joined_at)}</>}
+                  trailing={<StatusBadge status={m.status} />} />
+              ))}</div>
+            </>
+          )}
         </>
       )}
-    </Section>
+    </div>
   )
 }
 
 /* ---------- PLANS ---------- */
-function Plans({ profile, onReload }) {
+// Prices and feature lists are unchanged from the previous version of this page.
+const PLANS = [
+  { k: 'basic', name: 'Basic', price: 5, blurb: 'Everything you need to launch your community.', benefits: ['1 active community', 'Unlimited posts', 'Up to 500 members', 'Standard support', '10% platform fee'] },
+  { k: 'pro', name: 'Pro', price: 20, blurb: 'More room to grow your business.', benefits: ['Unlimited communities', 'Unlimited posts & members', 'Priority support', 'Advanced analytics', 'Lower platform fee', 'Custom branding'] },
+]
+
+function Plans({ profile }) {
   const [busy, setBusy] = useState('')
-  const plans = [
-    { k: 'basic', name: 'Basic', price: 5, benefits: ['1 active community', 'Unlimited posts', 'Up to 500 members', 'Standard support', '10% platform fee'] },
-    { k: 'pro', name: 'Pro', price: 20, benefits: ['Unlimited communities', 'Unlimited posts & members', 'Priority support', 'Advanced analytics', 'Lower platform fee', 'Custom branding'] },
-  ]
+  const status = profile?.platform_status
+  const current = profile?.platform_plan
+  const hasActive = status === 'active'
+
   async function subscribe(k) {
     setBusy(k)
     try {
-      // Server creates a Dodo Payments checkout session; we send the creator to it.
+      // The server creates a Dodo Payments checkout session; we send the creator to it.
       // After paying, Dodo redirects to /subscribed.
       const { checkout_url } = await API.post('/platform/subscribe', { plan: k })
       if (!checkout_url) throw new Error('Could not start checkout. Please try again.')
       window.location.href = checkout_url
     } catch (e) { toast.error(e.message); setBusy('') }
   }
+
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold tracking-tight">Manage Plans</h1><p className="text-sm text-muted-foreground">Subscribe to a platform plan to activate your channel.</p></div>
-      {profile?.platform_status === 'pending' && <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-300">Your <b className="capitalize">{profile.platform_plan}</b> plan is pending activation. We&rsquo;ll notify you once it&rsquo;s live.</div>}
-      {profile?.platform_status === 'active' && <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm text-primary flex items-center gap-2"><Check className="h-4 w-4" /> Your <b className="capitalize">{profile.platform_plan}</b> plan is active.</div>}
-      <div className="grid gap-4 md:grid-cols-2">
-        {plans.map(p => {
-          const active = profile?.platform_plan === p.k && profile?.platform_status === 'active'
+      <PageHeader title="Manage Plans" desc="Choose the platform plan that powers your channel." />
+
+      {status === 'pending' && (
+        <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4">
+          <div aria-hidden="true" className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-amber-500/15 text-amber-300"><Zap className="h-4 w-4" /></div>
+          <div className="min-w-0 text-sm">
+            <p className="font-semibold text-amber-200">Your <span className="capitalize">{current}</span> plan is pending activation</p>
+            <p className="mt-0.5 text-muted-foreground">Once your payment is received your channel goes live, usually within 1 hour. We&rsquo;ll notify you.</p>
+          </div>
+        </div>
+      )}
+      {hasActive && (
+        <div role="status" className="flex items-center gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-4 text-sm">
+          <div aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary"><Check className="h-4 w-4" /></div>
+          <p>You&rsquo;re on the <b className="capitalize">{current}</b> plan.</p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+        {PLANS.map(p => {
+          const isCurrent = hasActive && current === p.k
+          const isPendingPlan = status === 'pending' && current === p.k
+          const popular = p.k === 'pro'
+          const label = isCurrent ? 'Current plan'
+            : isPendingPlan ? 'Complete payment'
+            : hasActive && p.k === 'pro' ? 'Upgrade to Pro'
+            : `Choose ${p.name}`
           return (
-            <Card key={p.k} className={cn('relative border-border bg-card p-6', p.k === 'pro' && 'border-primary/40 glow-lime')}>
-              {p.k === 'pro' && <span className="absolute right-5 top-5 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">Popular</span>}
-              <h3 className="text-lg font-bold">{p.name}</h3>
-              <div className="mt-2 flex items-baseline gap-1"><span className="text-3xl font-extrabold">{money(p.price)}</span><span className="text-muted-foreground">/mo</span></div>
-              <ul className="mt-5 space-y-2 text-sm">{p.benefits.map((b, i) => <li key={i} className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> {b}</li>)}</ul>
-              <Button className="mt-6 w-full font-semibold" disabled={busy === p.k || active} variant={p.k === 'pro' ? 'default' : 'outline'} onClick={() => subscribe(p.k)}>{active ? 'Current plan' : busy === p.k ? <Spinner className="text-primary-foreground" /> : `Choose ${p.name}`}</Button>
-            </Card>
+            <article key={p.k} className={cn('relative flex flex-col rounded-2xl border bg-card p-5 sm:p-7', popular ? 'border-primary/40' : 'border-border', isCurrent && 'ring-1 ring-primary/50')}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold">{p.name}</h2>
+                  <p className="mt-0.5 text-sm text-muted-foreground">{p.blurb}</p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  {isCurrent && <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-semibold text-primary-foreground"><Check className="h-3 w-3" aria-hidden="true" /> Current plan</span>}
+                  {isPendingPlan && <StatusBadge status="pending" />}
+                  {popular && !isCurrent && <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">Popular</span>}
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-baseline gap-1.5">
+                <span className="text-4xl font-semibold tracking-tight tabular-nums">{money(p.price)}</span>
+                <span className="text-sm text-muted-foreground">/ month</span>
+              </div>
+
+              <div className="my-5 h-px bg-border" />
+
+              <ul className="flex-1 space-y-3 text-sm">
+                {p.benefits.map(b => (
+                  <li key={b} className="flex items-start gap-3">
+                    <span aria-hidden="true" className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary/10 text-primary"><Check className="h-3 w-3" /></span>
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <Button
+                className="mt-7 h-11 w-full text-sm font-semibold"
+                variant={popular && !isCurrent ? 'default' : 'outline'}
+                disabled={!!busy || isCurrent}
+                aria-busy={busy === p.k}
+                onClick={() => subscribe(p.k)}
+              >
+                {busy === p.k ? <Spinner className={popular ? 'text-primary-foreground' : ''} /> : label}
+              </Button>
+            </article>
           )
         })}
+      </div>
+
+      <div className="flex flex-col gap-1.5 rounded-2xl border border-border bg-card/50 p-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <p className="flex items-center gap-2"><Lock className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" /> Secure checkout powered by Dodo Payments.</p>
+        <p>Your channel is activated within 1 hour of payment. Platform fees are deducted from member payments before they reach your balance.</p>
       </div>
     </div>
   )
 }
 
-/* ---------- EARNINGS ---------- */
+/* ---------- EARNINGS / PAYOUT ---------- */
 function Earnings({ profile }) {
   const [data, setData] = useState(null)
+  const [failed, setFailed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
-  const load = () => API.get('/creator/earnings').then(setData).catch(() => setData({}))
-  useEffect(() => { load() }, [])
-  if (!data) return <FullLoader />
+  const load = () => { setFailed(false); API.get('/creator/earnings').then(setData).catch(() => setFailed(true)) }
+  useEffect(load, [])
+  if (failed) return <InlineError title="Could not load your earnings" onRetry={load} />
+  if (!data) return <DashboardSkeleton />
   const b = data.balance || {}
   const method = data.payout_method
   const det = data.payout_details || {}
@@ -372,39 +522,46 @@ function Earnings({ profile }) {
   }
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold tracking-tight">Payout</h1><p className="text-sm text-muted-foreground">Track your revenue and withdraw your balance.</p><p className="mt-1 text-xs font-medium text-primary">{RATE_NOTE}</p></div>
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <PageHeader
+        title="Payout"
+        desc="Track your revenue and withdraw your balance."
+        note={<p className="mt-2 inline-flex items-center rounded-lg border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">{RATE_NOTE}</p>}
+      />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <KPICard label="Available balance" value={money(b.available)} icon={DollarSign} />
         <KPICard label="Pending payout" value={money(b.pending)} icon={Wallet} accent="purple" />
         <KPICard label="Total earned" value={money(b.total_earned)} icon={TrendingUp} />
         <KPICard label="Referral payouts" value={money(b.referral_earned)} icon={Gift} accent="purple" />
       </div>
 
-      <Card className="border-border bg-card p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-xl bg-primary/15 text-primary"><Wallet className="h-5 w-5" /></div>
-            <div>
-              <p className="text-sm text-muted-foreground">Payout method</p>
-              <p className="font-semibold">{methodLabel}{methodValue ? ` · ${methodValue}` : ''}</p>
-              <button onClick={() => setEditOpen(true)} className="mt-0.5 text-xs font-medium text-primary hover:underline">{method ? 'Edit method' : 'Add payout method'}</button>
+      <div className="fv-card p-4 sm:p-6">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Wallet className="h-5 w-5" /></div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Payout method</p>
+              <p className="truncate font-semibold">{methodLabel}{methodValue ? ` · ${methodValue}` : ''}</p>
+              <button type="button" onClick={() => setEditOpen(true)} className="mt-0.5 rounded text-xs font-medium text-primary hover:underline">{method ? 'Edit method' : 'Add payout method'}</button>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right"><p className="text-xs text-muted-foreground">Available</p><p className="text-lg font-bold text-primary">{money(b.available)}</p></div>
-            <Button onClick={withdraw} disabled={busy || Number(b.available) <= 0} className="font-semibold">{busy ? <Spinner className="text-primary-foreground" /> : <><Banknote className="mr-1 h-4 w-4" /> Withdraw</>}</Button>
+          <div className="flex items-center justify-between gap-4 sm:justify-end">
+            <div className="sm:text-right"><p className="text-xs text-muted-foreground">Available to withdraw</p><p className="text-xl font-semibold tabular-nums text-primary">{money(b.available)}</p></div>
+            <Button onClick={withdraw} disabled={busy || Number(b.available) <= 0} className="font-semibold">{busy ? <Spinner className="text-primary-foreground" /> : <><Banknote className="h-4 w-4" /> Withdraw</>}</Button>
           </div>
         </div>
-        {!method && <p className="mt-3 text-xs text-amber-300">No payout method set yet — add one to enable withdrawals.</p>}
-        <p className="mt-3 text-xs text-muted-foreground">Exchange rate: <span className="font-semibold text-foreground">{RATE_NOTE}</span>. Balances are in USD; sales in &#8377; are converted at this rate.</p>
-      </Card>
+        {!method && <p className="mt-4 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200">No payout method set yet. Add one to enable withdrawals.</p>}
+        <p className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground">Exchange rate: <span className="font-semibold text-foreground">{RATE_NOTE}</span>. Balances are in USD; sales priced in &#8377; are converted at this rate.</p>
+      </div>
 
       <PayoutMethodDialog open={editOpen} setOpen={setEditOpen} profile={profile} current={{ method, det }} onSaved={load} />
 
       {(data.payouts && data.payouts.length > 0) && (
         <Section title="Payout history">
           <div className="space-y-2">{data.payouts.map(p => (
-            <Card key={p.id} className="border-border bg-card p-3"><div className="flex items-center justify-between"><div><p className="text-sm font-medium">Withdrawal</p><p className="text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</p></div><div className="flex items-center gap-3"><StatusBadge status={p.status} /><span className="font-semibold text-primary">{money(p.amount)}</span></div></div></Card>
+            <ListRow key={p.id}
+              leading={<div aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-secondary text-primary"><Banknote className="h-4 w-4" /></div>}
+              title="Withdrawal" sub={new Date(p.created_at).toLocaleDateString()}
+              trailing={<div className="flex items-center gap-3"><StatusBadge status={p.status} /><span className="font-semibold tabular-nums text-primary">{money(p.amount)}</span></div>} />
           ))}</div>
         </Section>
       )}
@@ -412,7 +569,7 @@ function Earnings({ profile }) {
       <Section title="Transaction history">
         {(!data.transactions || data.transactions.length === 0) ? <EmptyState icon={DollarSign} title="No transactions yet" desc="Earnings appear here when members join." /> : (
           <>
-            <div className="hidden overflow-hidden rounded-2xl border border-border md:block">
+            <div className="fv-card hidden overflow-hidden md:block">
               <Table>
                 <TableHeader><TableRow className="border-border hover:bg-transparent"><TableHead>Date</TableHead><TableHead>Member</TableHead><TableHead>Community</TableHead><TableHead>Type</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
                 <TableBody>{data.transactions.map(t => (
@@ -422,13 +579,17 @@ function Earnings({ profile }) {
                     <TableCell className="text-sm">{t.community?.name || '—'}</TableCell>
                     <TableCell className="text-sm capitalize">{t.type}</TableCell>
                     <TableCell><StatusBadge status={t.status} /></TableCell>
-                    <TableCell className="text-right font-semibold text-primary">{money(t.amount, t.currency)}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums text-primary">{money(t.amount, t.currency)}</TableCell>
                   </TableRow>
                 ))}</TableBody>
               </Table>
             </div>
             <div className="space-y-2 md:hidden">{data.transactions.map(t => (
-              <Card key={t.id} className="border-border bg-card p-3"><div className="flex items-center justify-between"><div><p className="text-sm font-medium capitalize">{t.type}</p><p className="text-xs text-muted-foreground">{t.member?.display_name || t.description} &middot; {new Date(t.created_at).toLocaleDateString()}</p></div><span className="font-semibold text-primary">{money(t.amount, t.currency)}</span></div></Card>
+              <ListRow key={t.id}
+                leading={<div aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-secondary text-primary"><DollarSign className="h-4 w-4" /></div>}
+                title={<span className="capitalize">{t.type}</span>}
+                sub={<>{t.member?.display_name || t.description} &middot; {new Date(t.created_at).toLocaleDateString()}</>}
+                trailing={<span className="font-semibold tabular-nums text-primary">{money(t.amount, t.currency)}</span>} />
             ))}</div>
           </>
         )}
@@ -437,7 +598,6 @@ function Earnings({ profile }) {
   )
 }
 
-/* ---------- ANALYTICS ---------- */
 function PayoutMethodDialog({ open, setOpen, profile, current, onSaved }) {
   const isIndia = profile?.country === 'India'
   const options = isIndia ? [['upi', 'UPI'], ['paypal', 'PayPal'], ['bank', 'Bank account']] : [['paypal', 'PayPal'], ['cashapp', 'CashApp']]
@@ -468,15 +628,15 @@ function PayoutMethodDialog({ open, setOpen, profile, current, onSaved }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Payout method</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Payout method</DialogTitle><DialogDescription>Where should we send your withdrawals?</DialogDescription></DialogHeader>
         <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">{options.map(([k, l]) => <button key={k} onClick={() => setMethod(k)} className={cn('rounded-xl border px-3 py-2 text-sm', method === k ? 'border-primary bg-primary/10 text-primary' : 'border-border')}>{l}</button>)}</div>
-          {method === 'paypal' && <div><Label>PayPal email</Label><Input className="mt-1.5" value={paypal} onChange={e => setPaypal(e.target.value)} placeholder="you@email.com" /></div>}
-          {method === 'upi' && <div><Label>UPI ID</Label><Input className="mt-1.5" value={upi} onChange={e => setUpi(e.target.value)} placeholder="name@bank" /></div>}
-          {method === 'cashapp' && <div><Label>CashApp email / $tag</Label><Input className="mt-1.5" value={cashapp} onChange={e => setCashapp(e.target.value)} placeholder="$yourtag" /></div>}
-          {method === 'bank' && <div className="grid gap-3 sm:grid-cols-2"><div><Label>Account number</Label><Input className="mt-1.5" value={acc} onChange={e => setAcc(e.target.value)} /></div><div><Label>IFSC</Label><Input className="mt-1.5" value={ifsc} onChange={e => setIfsc(e.target.value.toUpperCase())} /></div></div>}
+          <div role="group" aria-label="Payout method" className="flex flex-wrap gap-2">{options.map(([k, l]) => <button key={k} type="button" aria-pressed={method === k} onClick={() => setMethod(k)} className={cn('min-h-10 rounded-xl border px-4 text-sm font-medium transition-colors', method === k ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground')}>{l}</button>)}</div>
+          {method === 'paypal' && <div><Label htmlFor="pm-paypal">PayPal email</Label><Input id="pm-paypal" className="mt-1.5" value={paypal} onChange={e => setPaypal(e.target.value)} placeholder="you@email.com" /></div>}
+          {method === 'upi' && <div><Label htmlFor="pm-upi">UPI ID</Label><Input id="pm-upi" className="mt-1.5" value={upi} onChange={e => setUpi(e.target.value)} placeholder="name@bank" /></div>}
+          {method === 'cashapp' && <div><Label htmlFor="pm-cash">CashApp email / $tag</Label><Input id="pm-cash" className="mt-1.5" value={cashapp} onChange={e => setCashapp(e.target.value)} placeholder="$yourtag" /></div>}
+          {method === 'bank' && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div><Label htmlFor="pm-acc">Account number</Label><Input id="pm-acc" inputMode="numeric" className="mt-1.5" value={acc} onChange={e => setAcc(e.target.value)} /></div><div><Label htmlFor="pm-ifsc">IFSC</Label><Input id="pm-ifsc" className="mt-1.5" value={ifsc} onChange={e => setIfsc(e.target.value.toUpperCase())} /></div></div>}
         </div>
-        <DialogFooter><Button onClick={save} disabled={busy} className="font-semibold">{busy ? <Spinner className="text-primary-foreground" /> : 'Save method'}</Button></DialogFooter>
+        <DialogFooter><Button onClick={save} disabled={busy} className="w-full font-semibold sm:w-auto">{busy ? <Spinner className="text-primary-foreground" /> : 'Save method'}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   )
@@ -486,22 +646,25 @@ function PayoutMethodDialog({ open, setOpen, profile, current, onSaved }) {
 function Analytics() {
   const [range, setRange] = useState(90)
   const [data, setData] = useState(null)
-  useEffect(() => { setData(null); API.get(`/creator/overview?range=${range}`).then(setData).catch(() => {}) }, [range])
-  if (!data) return <FullLoader />
+  const [failed, setFailed] = useState(false)
+  const load = () => { setData(null); setFailed(false); API.get(`/creator/overview?range=${range}`).then(setData).catch(() => setFailed(true)) }
+  useEffect(load, [range])
+  if (failed) return <InlineError title="Could not load analytics" onRetry={load} />
+  if (!data) return <DashboardSkeleton />
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between"><div><h1 className="text-2xl font-bold tracking-tight">Analytics</h1><p className="text-sm text-muted-foreground">Deep dive into your community performance.</p></div>
-        <div className="flex gap-1 rounded-xl border border-border p-1">{[[30, '30d'], [90, '3m'], [180, '6m'], [365, '1y']].map(([v, l]) => <button key={v} onClick={() => setRange(v)} className={cn('rounded-lg px-2.5 py-1 text-xs', range === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>{l}</button>)}</div>
-      </div>
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <PageHeader title="Analytics" desc="Deep dive into your community performance."
+        actions={<Segmented label="Time range" value={range} onChange={setRange} options={[[30, '30d'], [90, '3m'], [180, '6m'], [365, '1y']]} />} />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <KPICard label="Members" value={data.kpis.totalMembers} icon={Users} />
         <KPICard label="Active" value={data.kpis.activeMembers} icon={Users} />
         <KPICard label="Revenue" value={money(data.kpis.totalRevenue)} icon={DollarSign} />
         <KPICard label="MRR" value={money(data.kpis.mrr)} icon={Repeat} accent="purple" />
       </div>
-      <Card className="border-border bg-card p-5"><h2 className="mb-4 font-semibold">Revenue trend</h2>
-        <div className="h-72"><ResponsiveContainer width="100%" height="100%"><AreaChart data={data.series}><defs><linearGradient id="rev2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="hsl(270 70% 62%)" stopOpacity={0.5} /><stop offset="100%" stopColor="hsl(270 70% 62%)" stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 15%)" vertical={false} /><XAxis dataKey="date" tick={{ fill: 'hsl(0 0% 55%)', fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={24} /><YAxis tick={{ fill: 'hsl(0 0% 55%)', fontSize: 11 }} axisLine={false} tickLine={false} width={36} /><Tooltip contentStyle={{ background: 'hsl(0 0% 8%)', border: '1px solid hsl(0 0% 15%)', borderRadius: 12 }} formatter={v => [money(v), 'Revenue']} /><Area type="monotone" dataKey="value" stroke="hsl(270 70% 62%)" strokeWidth={2} fill="url(#rev2)" /></AreaChart></ResponsiveContainer></div>
-      </Card>
+      <div className="fv-card p-4 sm:p-5">
+        <h2 className="mb-4 text-base font-semibold">Revenue trend</h2>
+        <RevenueChart data={data.series} color={CHART.purple} id="rev-analytics" height={288} />
+      </div>
     </div>
   )
 }
@@ -510,17 +673,25 @@ function Analytics() {
 function SettingsView({ profile, community, onNavPublic }) {
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold tracking-tight">Settings</h1><p className="text-sm text-muted-foreground">Manage your creator profile.</p></div>
-      <Card className="border-border bg-card p-6">
-        <div className="flex items-center gap-4"><Avatar src={profile?.avatar_url} name={profile?.display_name} size={64} /><div><p className="text-lg font-semibold">{profile?.display_name}</p><p className="text-sm text-muted-foreground">@{profile?.username} &middot; {profile?.email}</p></div></div>
+      <PageHeader title="Settings" desc="Manage your creator profile." />
+      <div className="fv-card p-4 sm:p-6">
+        <h2 className="fv-eyebrow mb-4">Profile</h2>
+        <div className="flex items-center gap-4">
+          <Avatar src={profile?.avatar_url} name={profile?.display_name} size={64} />
+          <div className="min-w-0"><p className="truncate text-lg font-semibold">{profile?.display_name}</p><p className="truncate text-sm text-muted-foreground">@{profile?.username} &middot; {profile?.email}</p></div>
+        </div>
         <p className="mt-4 text-sm text-muted-foreground">{profile?.bio || 'No bio yet.'}</p>
-      </Card>
+      </div>
       {community && (
-        <Card className="border-border bg-card p-6">
-          <div className="flex items-center justify-between"><h2 className="font-semibold">Your community</h2><StatusBadge status={community.status} /></div>
-          <div className="mt-4 flex items-center gap-3"><Avatar src={community.image_url} name={community.name} size={48} /><div className="flex-1"><p className="font-medium">{community.name}</p><p className="text-xs text-muted-foreground">{money(community.price, community.currency)}{community.pricing_type === 'recurring' ? `/${community.billing_period === 'yearly' ? 'yr' : 'mo'}` : ' one-time'}</p></div><Button size="sm" variant="outline" onClick={() => onNavPublic(community)}><ExternalLink className="mr-1 h-3.5 w-3.5" /> View</Button></div>
+        <div className="fv-card p-4 sm:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3"><h2 className="fv-eyebrow">Your community</h2><StatusBadge status={community.status} /></div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Avatar src={community.image_url} name={community.name} size={48} />
+            <div className="min-w-0 flex-1"><p className="truncate font-medium">{community.name}</p><p className="text-xs text-muted-foreground">{money(community.price, community.currency)}{community.pricing_type === 'recurring' ? `/${community.billing_period === 'yearly' ? 'yr' : 'mo'}` : ' one-time'}</p></div>
+            <Button size="sm" variant="outline" onClick={() => onNavPublic?.(community)}><ExternalLink className="h-3.5 w-3.5" /> View</Button>
+          </div>
           <div className="mt-4"><ShareLink community={community} /></div>
-        </Card>
+        </div>
       )}
     </div>
   )

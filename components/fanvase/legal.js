@@ -21,7 +21,7 @@ export function FooterLinks({ className }) {
 function Wordmark() {
   return (
     <a href="/" className="flex items-center gap-2 text-xl font-extrabold tracking-tight">
-      <img src="/fanvase-logo.jpeg" alt="Fanvase logo" className="h-8 w-8 rounded-lg object-cover" />
+      <img src="/fanvase-logo.jpeg" alt="" width={32} height={32} className="h-8 w-8 rounded-lg object-cover" />
       <span>Fan<span className="text-primary">vase</span></span>
     </a>
   )
@@ -29,7 +29,7 @@ function Wordmark() {
 
 export function InfoShell({ title, subtitle, updated, children }) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-[100dvh] bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between">
           <Wordmark />
@@ -37,8 +37,8 @@ export function InfoShell({ title, subtitle, updated, children }) {
         </div>
       </header>
 
-      <main className="container max-w-3xl py-12 md:py-16">
-        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">{title}</h1>
+      <main className="container max-w-3xl py-10 md:py-16">
+        <h1 className="text-2xl font-extrabold tracking-tight sm:text-4xl">{title}</h1>
         {subtitle && <p className="mt-3 text-muted-foreground">{subtitle}</p>}
         {updated && <p className="mt-2 text-xs text-muted-foreground">Last updated: {updated}</p>}
         <div className="mt-8 space-y-2 leading-relaxed text-muted-foreground">{children}</div>

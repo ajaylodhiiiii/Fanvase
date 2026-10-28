@@ -7,56 +7,58 @@ import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { API, money, cn } from '@/lib/fanvase'
-import { Logo, Avatar, FullLoader, KPICard, StatusBadge, Section, EmptyState, Spinner } from '@/components/fanvase/atoms'
-import { LayoutDashboard, Users, Radio, UserPlus, LogOut, DollarSign, Check, Link2, Menu, X, ShieldCheck, Banknote, Clock } from 'lucide-react'
+import { Avatar, FullLoader, KPICard, StatusBadge, Section, EmptyState, Spinner, PageHeader, InlineError, selectClass } from '@/components/fanvase/atoms'
+import { DashboardShell } from '@/components/fanvase/shell'
+import { LayoutDashboard, Users, Radio, UserPlus, LogOut, DollarSign, Check, Link2, ShieldCheck, Banknote, Clock } from 'lucide-react'
 
-const NAV = [
-  { k: 'overview', t: 'Overview', icon: LayoutDashboard },
-  { k: 'communities', t: 'Communities', icon: Radio },
-  { k: 'members', t: 'Add Members', icon: UserPlus },
-  { k: 'payouts', t: 'Payouts', icon: Banknote },
-  { k: 'users', t: 'Users', icon: Users },
+const NAV_GROUPS = [
+  { items: [
+    { k: 'overview', t: 'Overview', icon: LayoutDashboard },
+    { k: 'communities', t: 'Communities', icon: Radio },
+    { k: 'members', t: 'Add Members', icon: UserPlus },
+  ] },
+  { label: 'Finance & people', items: [
+    { k: 'payouts', t: 'Payouts', icon: Banknote },
+    { k: 'users', t: 'Users', icon: Users },
+  ] },
 ]
 
 export function AdminPanel({ profile, onExit, onLogout }) {
   const [view, setView] = useState('overview')
-  const [nav, setNav] = useState(false)
   return (
-    <div className="min-h-screen bg-background lg:flex">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
-        <div className="flex h-16 items-center gap-2 px-5"><Logo size="sm" /><span className="rounded-md bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">ADMIN</span></div>
-        <nav className="flex-1 space-y-1 px-3">{NAV.map(n => <button key={n.k} onClick={() => setView(n.k)} className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium', view === n.k ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent')}><n.icon className="h-4.5 w-4.5" /> {n.t}</button>)}</nav>
-        <div className="p-3"><button onClick={onExit} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent"><LayoutDashboard className="h-4.5 w-4.5" /> My dashboard</button><button onClick={onLogout} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent"><LogOut className="h-4.5 w-4.5" /> Log out</button></div>
-      </aside>
-
-      <div className="flex-1 min-w-0">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-xl">
-          <button className="lg:hidden" onClick={() => setNav(true)}><Menu className="h-5 w-5" /></button>
-          <div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /><span className="font-semibold">Admin Console</span></div>
-          <div className="ml-auto"><Avatar src={profile?.avatar_url} name={profile?.display_name} size={34} /></div>
-        </header>
-        {nav && <div className="fixed inset-0 z-50 lg:hidden"><div className="absolute inset-0 bg-black/60" onClick={() => setNav(false)} /><div className="absolute left-0 top-0 h-full w-64 bg-sidebar p-4"><div className="mb-4 flex justify-between"><Logo size="sm" /><button onClick={() => setNav(false)}><X className="h-5 w-5" /></button></div>{NAV.map(n => <button key={n.k} onClick={() => { setView(n.k); setNav(false) }} className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm', view === n.k ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground')}><n.icon className="h-4.5 w-4.5" /> {n.t}</button>)}<button onClick={onExit} className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground"><LayoutDashboard className="h-4.5 w-4.5" /> My dashboard</button></div></div>}
-
-        <main className="container max-w-6xl py-6">
-          {view === 'overview' && <AdminOverview />}
-          {view === 'communities' && <AdminCommunities />}
-          {view === 'members' && <AdminAddMember />}
-          {view === 'payouts' && <AdminPayouts />}
-          {view === 'users' && <AdminUsers />}
-        </main>
-      </div>
-    </div>
+    <DashboardShell
+      badge="ADMIN"
+      groups={NAV_GROUPS}
+      view={view}
+      setView={setView}
+      user={profile}
+      onLogoClick={() => setView('overview')}
+      footer={[
+        { t: 'My dashboard', icon: LayoutDashboard, onClick: onExit },
+        { t: 'Log out', icon: LogOut, onClick: onLogout },
+      ]}
+      topRight={<><span className="hidden items-center gap-1.5 text-xs font-medium text-muted-foreground sm:flex"><ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" /> Admin console</span><Avatar src={profile?.avatar_url} name={profile?.display_name} size={36} /></>}
+    >
+      {view === 'overview' && <AdminOverview />}
+      {view === 'communities' && <AdminCommunities />}
+      {view === 'members' && <AdminAddMember />}
+      {view === 'payouts' && <AdminPayouts />}
+      {view === 'users' && <AdminUsers />}
+    </DashboardShell>
   )
 }
 
 function AdminOverview() {
   const [d, setD] = useState(null)
-  useEffect(() => { API.get('/admin/overview').then(setD).catch(() => setD({})) }, [])
+  const [failed, setFailed] = useState(false)
+  const load = () => { setFailed(false); API.get('/admin/overview').then(setD).catch(() => setFailed(true)) }
+  useEffect(load, [])
+  if (failed) return <InlineError title="Could not load the overview" onRetry={load} />
   if (!d) return <FullLoader />
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">Platform overview</h1>
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+      <PageHeader title="Platform overview" desc="Key numbers across Fanvase." />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         <KPICard label="Total Users" value={d.users} icon={Users} />
         <KPICard label="Creators" value={d.creators} icon={Radio} accent="purple" />
         <KPICard label="Communities" value={d.communities} icon={Radio} />
@@ -73,17 +75,19 @@ function AdminCommunities() {
   const [editing, setEditing] = useState(null)
   const [link, setLink] = useState('')
   const [busy, setBusy] = useState('')
-  const load = () => API.get('/admin/communities').then(r => setList(r.communities)).catch(() => setList([]))
+  const [failed, setFailed] = useState(false)
+  const load = () => { setFailed(false); API.get('/admin/communities').then(r => setList(r.communities)).catch(() => setFailed(true)) }
   useEffect(() => { load() }, [])
   async function activate(c) { setBusy(c.id); try { await API.post('/admin/update-community', { community_id: c.id, status: c.status === 'active' ? 'pending' : 'active' }); toast.success('Updated'); load() } catch (e) { toast.error(e.message) } finally { setBusy('') } }
   async function activatePlatform(c) { setBusy('p' + c.id); try { await API.post('/admin/activate-platform', { creator_id: c.creator_id }); toast.success('Platform activated'); load() } catch (e) { toast.error(e.message) } finally { setBusy('') } }
   async function saveLink(c) { try { await API.post('/admin/update-community', { community_id: c.id, payment_link: link }); toast.success('Payment link saved'); setEditing(null); load() } catch (e) { toast.error(e.message) } }
+  if (failed) return <InlineError title="Could not load communities" onRetry={load} />
   if (list === null) return <FullLoader />
   return (
     <Section title="Communities" desc="Activate channels, set payment links and manage creators.">
       {list.length === 0 ? <EmptyState icon={Radio} title="No communities yet" /> : (
         <div className="space-y-3">{list.map(c => (
-          <Card key={c.id} className="border-border bg-card p-4">
+          <Card key={c.id} className="p-4">
             <div className="flex flex-wrap items-center gap-3">
               <Avatar src={c.image_url} name={c.name} size={44} />
               <div className="min-w-0 flex-1"><p className="font-semibold">{c.name}</p><p className="text-xs text-muted-foreground">@{c.creator?.username} &middot; {money(c.price, c.currency)}{c.pricing_type === 'recurring' ? `/${c.billing_period === 'yearly' ? 'yr' : 'mo'}` : ' one-time'} &middot; {c.member_count || 0} members</p></div>
@@ -99,7 +103,7 @@ function AdminCommunities() {
                 <Button size="sm" variant="ghost" onClick={() => { setEditing(c.id); setLink(c.payment_link || '') }}><Link2 className="mr-1 h-3.5 w-3.5" /> {c.payment_link ? 'Edit payment link' : 'Set payment link'}</Button>
               )}
             </div>
-            {c.payment_link && editing !== c.id && <p className="mt-2 truncate text-xs text-primary">Payment: {c.payment_link}</p>}
+            {c.payment_link && editing !== c.id && <p className="mt-2 break-all text-xs text-primary">Payment: {c.payment_link}</p>}
           </Card>
         ))}</div>
       )}
@@ -121,13 +125,13 @@ function AdminAddMember() {
   }
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold tracking-tight">Add member to a channel</h1><p className="text-sm text-muted-foreground">After a user pays, manually grant them access to a creator&rsquo;s community.</p></div>
-      <Card className="max-w-lg border-border bg-card p-6">
+      <PageHeader title="Add member to a channel" desc="After a user pays, manually grant them access to a creator&rsquo;s community." />
+      <Card className="max-w-lg p-4 sm:p-6">
         <div className="space-y-4">
-          <div><Label>Community / channel</Label><select value={community} onChange={e => setCommunity(e.target.value)} className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm">{list.map(c => <option key={c.id} value={c.id}>{c.name} (@{c.creator?.username})</option>)}</select></div>
+          <div><Label>Community / channel</Label><select value={community} onChange={e => setCommunity(e.target.value)} className={`${selectClass} mt-1.5`}>{list.map(c => <option key={c.id} value={c.id}>{c.name} (@{c.creator?.username})</option>)}</select></div>
           <div><Label>User email</Label><Input className="mt-1.5" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="user@email.com" /></div>
           <div><Label>Plan label (optional)</Label><Input className="mt-1.5" value={plan} onChange={e => setPlan(e.target.value)} placeholder="monthly / one-time" /></div>
-          <Button className="w-full font-semibold" onClick={add} disabled={busy}>{busy ? <Spinner className="text-primary-foreground" /> : <><UserPlus className="mr-1 h-4 w-4" /> Grant access</>}</Button>
+          <Button className="w-full font-semibold" onClick={add} disabled={busy}>{busy ? <Spinner className="text-primary-foreground" /> : <><UserPlus className="h-4 w-4" /> Grant access</>}</Button>
         </div>
       </Card>
     </div>
@@ -148,17 +152,19 @@ function fmtPayout(creator) {
 function AdminPayouts() {
   const [list, setList] = useState(null)
   const [busy, setBusy] = useState('')
-  const load = () => API.get('/admin/payouts').then(r => setList(r.payouts)).catch(() => setList([]))
+  const [failed, setFailed] = useState(false)
+  const load = () => { setFailed(false); API.get('/admin/payouts').then(r => setList(r.payouts)).catch(() => setFailed(true)) }
   useEffect(() => { load() }, [])
   async function setStatus(p, status) { setBusy(p.id); try { await API.post('/admin/update-payout', { payout_id: p.id, status }); toast.success(`Payout marked ${status}`); load() } catch (e) { toast.error(e.message) } finally { setBusy('') } }
+  if (failed) return <InlineError title="Could not load payouts" onRetry={load} />
   if (list === null) return <FullLoader />
   return (
     <Section title="Payouts" desc="Review creator withdrawals and mark them processing or paid.">
       {list.length === 0 ? <EmptyState icon={Banknote} title="No payout requests yet" desc="Creator withdrawals will appear here." /> : (
         <div className="space-y-3">{list.map(p => (
-          <Card key={p.id} className="border-border bg-card p-4">
+          <Card key={p.id} className="p-4">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="grid h-11 w-11 place-items-center rounded-xl bg-primary/15 text-primary"><Banknote className="h-5 w-5" /></div>
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Banknote className="h-5 w-5" /></div>
               <div className="min-w-0 flex-1"><p className="font-semibold">{money(p.amount)} <span className="text-xs font-normal text-muted-foreground">to @{p.creator?.username || 'creator'}</span></p><p className="text-xs text-muted-foreground">{p.creator?.email} · {new Date(p.created_at).toLocaleDateString()}</p></div>
               <StatusBadge status={p.status} />
             </div>
@@ -178,12 +184,15 @@ function AdminPayouts() {
 
 function AdminUsers() {
   const [users, setUsers] = useState(null)
-  useEffect(() => { API.get('/admin/users').then(r => setUsers(r.users)).catch(() => setUsers([])) }, [])
+  const [failed, setFailed] = useState(false)
+  const load = () => { setFailed(false); API.get('/admin/users').then(r => setUsers(r.users)).catch(() => setFailed(true)) }
+  useEffect(load, [])
+  if (failed) return <InlineError title="Could not load users" onRetry={load} />
   if (users === null) return <FullLoader />
   return (
     <Section title={`Users (${users.length})`}>
       <div className="space-y-2">{users.map(u => (
-        <Card key={u.id} className="border-border bg-card p-3"><div className="flex items-center gap-3"><Avatar src={u.avatar_url} name={u.display_name} size={38} /><div className="min-w-0 flex-1"><p className="text-sm font-medium">{u.display_name} {u.username && <span className="text-muted-foreground">@{u.username}</span>}</p><p className="truncate text-xs text-muted-foreground">{u.email}</p></div><div className="flex items-center gap-2"><span className={cn('rounded-full border px-2 py-0.5 text-xs capitalize', u.role === 'admin' ? 'border-purple-500/30 bg-purple-500/15 text-purple-300' : u.role === 'creator' ? 'border-primary/30 bg-primary/15 text-primary' : 'border-border text-muted-foreground')}>{u.role}</span></div></div></Card>
+        <Card key={u.id} className="p-3"><div className="flex items-center gap-3"><Avatar src={u.avatar_url} name={u.display_name} size={38} /><div className="min-w-0 flex-1"><p className="text-sm font-medium">{u.display_name} {u.username && <span className="text-muted-foreground">@{u.username}</span>}</p><p className="truncate text-xs text-muted-foreground">{u.email}</p></div><div className="flex items-center gap-2"><span className={cn('rounded-full border px-2 py-0.5 text-xs capitalize', u.role === 'admin' ? 'border-purple-500/30 bg-purple-500/15 text-purple-300' : u.role === 'creator' ? 'border-primary/30 bg-primary/15 text-primary' : 'border-border text-muted-foreground')}>{u.role}</span></div></div></Card>
       ))}</div>
     </Section>
   )

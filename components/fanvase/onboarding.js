@@ -106,14 +106,14 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
       ]
 
   return (
-    <div className="min-h-screen bg-grid">
+    <div className="min-h-[100dvh] bg-grid">
       <header className="border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between"><Logo size="sm" onClick={onExit} /><Button variant="ghost" size="sm" onClick={onExit}>Save & exit</Button></div>
       </header>
 
       <div className="container max-w-3xl py-8">
         {/* stepper */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between sm:mb-8">
           {steps.map((s, i) => {
             const n = i + 1, done = n < step, cur = n === step
             return (
@@ -127,6 +127,7 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
             )
           })}
         </div>
+        <p className="mb-6 text-center text-sm text-muted-foreground sm:hidden">Step {step} of {steps.length} &middot; <span className="font-medium text-foreground">{steps[step - 1]}</span></p>
 
         <Card className="border-border bg-card p-6 md:p-8">
           {step === 1 && (
@@ -139,8 +140,8 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
                   <div><Label>Display name</Label><Input className="mt-1.5" value={d.display_name} onChange={e => set('display_name', e.target.value)} placeholder="Your Name" /></div>
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div><Label>Country</Label><select value={d.country} onChange={e => set('country', e.target.value)} className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm">{COUNTRIES.map(c => <option key={c}>{c}</option>)}</select></div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div><Label>Country</Label><select value={d.country} onChange={e => set('country', e.target.value)} className="mt-1.5 h-10 w-full rounded-xl border border-input bg-background/50 px-3 text-base md:text-sm">{COUNTRIES.map(c => <option key={c}>{c}</option>)}</select></div>
               </div>
               <div><Label>Short bio</Label><Textarea className="mt-1.5" rows={3} value={d.bio} onChange={e => set('bio', e.target.value)} placeholder="Tell fans what you're about..." /></div>
             </div>
@@ -158,9 +159,9 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
                 </div>
               </div>
               <div><Label>Description</Label><Textarea className="mt-1.5" rows={3} value={d.c_desc} onChange={e => set('c_desc', e.target.value)} placeholder="What will members get?" /></div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div><Label>Category</Label><select value={d.c_category} onChange={e => set('c_category', e.target.value)} className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm">{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
-                <div><Label>Country</Label><select value={d.c_country} onChange={e => set('c_country', e.target.value)} className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm">{COUNTRIES.map(c => <option key={c}>{c}</option>)}</select></div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div><Label>Category</Label><select value={d.c_category} onChange={e => set('c_category', e.target.value)} className="mt-1.5 h-10 w-full rounded-xl border border-input bg-background/50 px-3 text-base md:text-sm">{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
+                <div><Label>Country</Label><select value={d.c_country} onChange={e => set('c_country', e.target.value)} className="mt-1.5 h-10 w-full rounded-xl border border-input bg-background/50 px-3 text-base md:text-sm">{COUNTRIES.map(c => <option key={c}>{c}</option>)}</select></div>
               </div>
             </div>
           )}
@@ -168,7 +169,7 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
           {step === 3 && (
             <div className="space-y-5">
               <div><h2 className="text-2xl font-bold">Set your pricing</h2><p className="text-sm text-muted-foreground">Choose how fans pay to access your community.</p></div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {[{ k: 'recurring', icon: Repeat, t: 'Recurring', d: 'Charge every month or year. Best for ongoing content.' }, { k: 'onetime', icon: Zap, t: 'One-time', d: 'Charge once for lifetime access.' }].map(o => (
                   <button key={o.k} onClick={() => set('pricing_type', o.k)} className={cn('rounded-2xl border p-5 text-left transition', d.pricing_type === o.k ? 'border-primary bg-primary/10' : 'border-border bg-background hover:border-primary/40')}>
                     <div className={cn('grid h-10 w-10 place-items-center rounded-xl', d.pricing_type === o.k ? 'bg-primary text-primary-foreground' : 'bg-secondary text-primary')}><o.icon className="h-5 w-5" /></div>
@@ -179,9 +180,9 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
               {d.pricing_type === 'recurring' && (
                 <div><Label>Billing period</Label><div className="mt-1.5 flex gap-2">{['monthly', 'yearly'].map(b => <button key={b} onClick={() => set('billing_period', b)} className={cn('rounded-xl border px-4 py-2 text-sm capitalize', d.billing_period === b ? 'border-primary bg-primary/10 text-primary' : 'border-border')}>{b}</button>)}</div></div>
               )}
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div><Label>Price</Label><div className="relative mt-1.5"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span><Input className="pl-7" type="number" value={d.price} onChange={e => set('price', e.target.value)} /></div></div>
-                <div><Label>Currency</Label><select value={d.currency} onChange={e => set('currency', e.target.value)} className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option>USD</option><option>INR</option><option>EUR</option><option>GBP</option></select></div>
+                <div><Label>Currency</Label><select value={d.currency} onChange={e => set('currency', e.target.value)} className="mt-1.5 h-10 w-full rounded-xl border border-input bg-background/50 px-3 text-base md:text-sm"><option>USD</option><option>INR</option><option>EUR</option><option>GBP</option></select></div>
               </div>
               <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm"><span className="font-semibold text-primary">{money(d.price, d.currency)}</span> {d.pricing_type === 'recurring' ? `per ${d.billing_period === 'yearly' ? 'year' : 'month'}` : 'one-time'} &middot; you keep 90%.</div>
             </div>
@@ -190,7 +191,7 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
           {step === 4 && (
             <div className="space-y-5">
               <div><h2 className="text-2xl font-bold">Payout method</h2><p className="text-sm text-muted-foreground">Where should we send your earnings? Based on your country ({d.country}).</p></div>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {payoutOptions.map(o => (
                   <button key={o.k} onClick={() => set('payout_method', o.k)} className={cn('rounded-2xl border p-4 text-left transition', d.payout_method === o.k ? 'border-primary bg-primary/10' : 'border-border bg-background hover:border-primary/40')}>
                     <div className={cn('grid h-10 w-10 place-items-center rounded-xl', d.payout_method === o.k ? 'bg-primary text-primary-foreground' : 'bg-secondary text-primary')}><o.icon className="h-5 w-5" /></div>
@@ -202,7 +203,7 @@ export function CreatorOnboarding({ profile, onLaunched, onExit }) {
               {d.payout_method === 'upi' && <div><Label>UPI ID</Label><Input className="mt-1.5" value={d.po_upi} onChange={e => set('po_upi', e.target.value)} placeholder="yourname@bank" /></div>}
               {d.payout_method === 'cashapp' && <div><Label>CashApp email / $cashtag</Label><Input className="mt-1.5" value={d.po_cashapp} onChange={e => set('po_cashapp', e.target.value)} placeholder="$yourtag or email" /></div>}
               {d.payout_method === 'bank' && (
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div><Label>Account number</Label><Input className="mt-1.5" value={d.po_bank_acc} onChange={e => set('po_bank_acc', e.target.value)} placeholder="0000 0000 0000" /></div>
                   <div><Label>IFSC code</Label><Input className="mt-1.5" value={d.po_bank_ifsc} onChange={e => set('po_bank_ifsc', e.target.value.toUpperCase())} placeholder="ABCD0123456" /></div>
                 </div>
