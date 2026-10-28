@@ -73,13 +73,13 @@ function App() {
 
   const openPublic = (c) => { if (c?.slug) window.open(`/c/${c.slug}`, '_blank') }
 
-  if (booting) return <div className="min-h-screen bg-background"><FullLoader label="Loading Fanvase" /></div>
+  if (booting) return <div className="min-h-[100dvh] bg-background"><FullLoader label="Loading Fanvase" /></div>
 
   // ---- LOGGED OUT ----
   if (!session) {
     if (screen === 'auth') return <AuthView mode={authMode} initialRole={authRole} refCode={refCode} onDone={onAuthDone} onBack={() => setScreen('landing')} onSwitch={(m) => { setAuthMode(m); setScreen('auth') }} />
     if (screen === 'discover') return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-[100dvh] bg-background">
         <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl"><div className="container flex h-16 items-center justify-between"><Logo size="sm" onClick={() => setScreen('landing')} /><Button size="sm" onClick={() => { setAuthMode('signup'); setScreen('auth') }}>Sign up</Button></div></header>
         <div className="container max-w-5xl py-6"><DiscoverView onOpen={openPublic} /></div>
       </div>
@@ -88,7 +88,7 @@ function App() {
   }
 
   // ---- LOGGED IN, no profile yet ----
-  if (!me?.profile) return <div className="min-h-screen bg-background"><FullLoader label="Setting up your account" /></div>
+  if (!me?.profile) return <div className="min-h-[100dvh] bg-background"><FullLoader label="Setting up your account" /></div>
 
   // ---- ONBOARDING ----
   if (screen === 'onboarding') return <CreatorOnboarding profile={me.profile} onExit={async () => { const m = await loadMe(); routeAfterAuth(m) }} onLaunched={async () => { await loadMe(); setAppMode('creator'); setScreen('app') }} />
