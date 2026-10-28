@@ -19,9 +19,9 @@ export default function CommunityPage() {
     API.get(`/community/${slug}`).then(setData).catch(() => setData({ error: true }))
   }, [slug])
 
-  if (!data) return <div className="min-h-screen bg-background"><FullLoader label="Loading community" /></div>
+  if (!data) return <div className="min-h-[100dvh] bg-background"><FullLoader label="Loading community" /></div>
   if (data.error || !data.community) return (
-    <div className="grid min-h-screen place-items-center bg-background">
+    <div className="grid min-h-[100dvh] place-items-center bg-background">
       <EmptyState icon={Compass} title="Community not found" desc="This community may have been removed." action={<Button onClick={() => (window.location.href = '/')}>Go home</Button>} />
     </div>
   )
